@@ -1,0 +1,16 @@
+{
+  "name": "motives-ai",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "pnpm --filter @motives-ai/web dev",
+    "dev:api": "pnpm --filter @motives-ai/api dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.8"
+  }
+}
