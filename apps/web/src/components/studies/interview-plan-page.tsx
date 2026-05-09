@@ -134,7 +134,13 @@ function ExampleProbeCallout({ items }: { items: string[] }) {
   );
 }
 
-export function InterviewPlanPage({ plan }: { plan: StudyPlanModel }) {
+export function InterviewPlanPage({
+  plan,
+  studyId,
+}: {
+  plan: StudyPlanModel;
+  studyId: string;
+}) {
   const [editablePlan, setEditablePlan] = useState(plan);
   const [isEditTopicsOpen, setIsEditTopicsOpen] = useState(false);
   const [editTopicsSession, setEditTopicsSession] = useState(0);
@@ -145,11 +151,11 @@ export function InterviewPlanPage({ plan }: { plan: StudyPlanModel }) {
         <div className="flex w-full flex-col gap-6 px-4 py-7 sm:px-6 lg:px-6 lg:py-9 xl:px-8 2xl:px-12">
           <section className="flex flex-col gap-5">
             <Link
-              href="/studies"
+              href={`/studies/${studyId}`}
               className="inline-flex w-fit items-center gap-2 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-950"
             >
               <ArrowLeft className="size-4" />
-              Back to Studies
+              Back to Study
             </Link>
 
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">

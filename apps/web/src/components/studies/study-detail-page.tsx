@@ -285,6 +285,50 @@ function SessionSignal({ signal }: { signal: StudySessionItem["emotionalSignal"]
   );
 }
 
+function SessionActionButton({
+  studyId,
+  session,
+  onContinue,
+}: {
+  studyId: string;
+  session: StudySessionItem;
+  onContinue: () => void;
+}) {
+  const className = cn(
+    "h-8 rounded-lg px-3 text-[12px] shadow-none whitespace-nowrap",
+    session.actionTone === "primary"
+      ? "bg-primary text-white hover:bg-primary/90"
+      : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
+  );
+
+  if (session.state === "completed") {
+    return (
+      <Link
+        href={`/studies/${studyId}/interviews/${session.id}/debrief`}
+        className={buttonVariants({
+          variant: "outline",
+          size: "sm",
+          className,
+        })}
+      >
+        {session.actionLabel}
+      </Link>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant={session.actionTone === "primary" ? "default" : "outline"}
+      size="sm"
+      onClick={onContinue}
+      className={className}
+    >
+      {session.actionLabel}
+    </Button>
+  );
+}
+
 export function StudyDetailPage({ study }: { study: StudyDetailModel }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
@@ -491,24 +535,15 @@ export function StudyDetailPage({ study }: { study: StudyDetailModel }) {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant={session.actionTone === "primary" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() =>
+                          <SessionActionButton
+                            studyId={study.studyId}
+                            session={session}
+                            onContinue={() =>
                               setActiveSessionId((current) =>
                                 current === session.id ? null : session.id,
                               )
                             }
-                            className={cn(
-                              "h-8 rounded-lg px-3 text-[12px] shadow-none whitespace-nowrap",
-                              session.actionTone === "primary"
-                                ? "bg-primary text-white hover:bg-primary/90"
-                                : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
-                            )}
-                          >
-                            {session.actionLabel}
-                          </Button>
+                          />
                           <Button
                             type="button"
                             variant="outline"
@@ -582,24 +617,15 @@ export function StudyDetailPage({ study }: { study: StudyDetailModel }) {
                           </td>
                           <td className="px-3 py-3.5 sm:px-4">
                             <div className="flex items-center justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant={session.actionTone === "primary" ? "default" : "outline"}
-                                size="sm"
-                                onClick={() =>
+                              <SessionActionButton
+                                studyId={study.studyId}
+                                session={session}
+                                onContinue={() =>
                                   setActiveSessionId((current) =>
                                     current === session.id ? null : session.id,
                                   )
                                 }
-                                className={cn(
-                                  "h-8 rounded-lg px-3 text-[12px] shadow-none whitespace-nowrap",
-                                  session.actionTone === "primary"
-                                    ? "bg-primary text-white hover:bg-primary/90"
-                                    : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
-                                )}
-                              >
-                                {session.actionLabel}
-                              </Button>
+                              />
                               <Button
                                 type="button"
                                 variant="outline"

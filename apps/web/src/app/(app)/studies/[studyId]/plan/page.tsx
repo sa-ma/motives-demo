@@ -15,5 +15,5 @@ export default async function StudyPlanRoute({
     notFound();
   }
 
-  return <InterviewPlanPage plan={plan} />;
+  return <InterviewPlanPage plan={plan} studyId={studyId} />;
 }
