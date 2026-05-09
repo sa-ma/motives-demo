@@ -6,7 +6,7 @@ import { StudiesToolbar } from "@/components/studies/studies-toolbar";
 export function StudiesPage() {
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,253,0.98))]">
-      <div className="mx-auto flex h-full max-w-[1180px] flex-col gap-7 px-4 py-7 sm:px-6 lg:px-8 lg:py-9 xl:px-10">
+      <div className="flex h-full w-full flex-col gap-7 px-4 py-7 sm:px-6 lg:px-6 lg:py-9 xl:px-8 2xl:px-12">
         <StudiesToolbar />
 
         {studies.length === 0 ? (

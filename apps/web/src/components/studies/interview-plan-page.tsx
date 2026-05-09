@@ -141,9 +141,9 @@ export function InterviewPlanPage({ plan }: { plan: StudyPlanModel }) {
   return (
     <>
       <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))]">
-        <div className="mx-auto flex max-w-[1180px] flex-col gap-6 px-4 py-7 sm:px-6 lg:px-8 lg:py-9 xl:px-10">
-          <section className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div className="max-w-3xl space-y-2">
+        <div className="flex w-full flex-col gap-6 px-4 py-7 sm:px-6 lg:px-6 lg:py-9 xl:px-8 2xl:px-12">
+          <section className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">
+            <div className="min-w-0 flex-1 space-y-2">
               <h1 className="font-heading text-[1.9rem] leading-none font-semibold tracking-tight text-zinc-950 sm:text-[2.2rem]">
                 Interview Plan
               </h1>
@@ -152,7 +152,7 @@ export function InterviewPlanPage({ plan }: { plan: StudyPlanModel }) {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-3">
               <Button
                 type="button"
                 variant="outline"

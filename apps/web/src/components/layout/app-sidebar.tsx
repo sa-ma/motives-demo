@@ -59,14 +59,17 @@ function SidebarItem({
   href,
   icon: Icon,
   active = false,
+  compact = false,
 }: {
   label: string;
   href?: string;
   icon: React.ComponentType<{ className?: string }>;
   active?: boolean;
+  compact?: boolean;
 }) {
   const classes = cn(
-    "flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
+    "flex h-9 items-center rounded-md text-sm font-medium transition-colors",
+    compact ? "justify-center px-0 2xl:justify-start 2xl:gap-2.5 2xl:px-2.5" : "gap-2.5 px-2.5",
     active
       ? "bg-primary/5 text-primary"
       : "text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-950",
@@ -75,7 +78,7 @@ function SidebarItem({
   const content = (
     <>
       <Icon className={cn("size-4", active ? "text-primary" : "text-zinc-500")} />
-      <span>{label}</span>
+      <span className={cn(compact && "hidden 2xl:inline")}>{label}</span>
     </>
   );
 
@@ -94,15 +97,18 @@ function SidebarItem({
   );
 }
 
-export function AppSidebarContent() {
+export function AppSidebarContent({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full flex-col bg-white px-5 py-6">
-      <div className="flex items-center">
-        <p className="text-[15px] font-semibold text-slate-950">
+    <div className={cn("flex h-full flex-col bg-white py-6", compact ? "px-3 2xl:px-4" : "px-4")}>
+      <div className={cn("flex items-center", compact ? "justify-center 2xl:justify-start" : "justify-start")}>
+        <p className={cn("text-[15px] font-semibold text-slate-950", compact ? "hidden 2xl:block" : "block")}>
           Researcher AI
         </p>
+        <div className={cn("flex size-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground", compact ? "2xl:hidden" : "hidden")}>
+          R
+        </div>
       </div>
 
       <Separator className="mt-6 mb-7" />
@@ -113,13 +119,17 @@ export function AppSidebarContent() {
             key={item.label}
             {...item}
             active={getNavItemActiveState(pathname, item)}
+            compact={compact}
           />
         ))}
       </nav>
 
       <button
         type="button"
-        className="mt-auto inline-flex size-11 items-center justify-center rounded-full transition-colors hover:bg-zinc-100"
+        className={cn(
+          "mt-auto inline-flex size-11 items-center justify-center rounded-full transition-colors hover:bg-zinc-100",
+          compact ? "self-center 2xl:self-auto" : "self-auto",
+        )}
         aria-label="Open user menu"
       >
         <Avatar className="size-11">

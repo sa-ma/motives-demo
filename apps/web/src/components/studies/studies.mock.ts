@@ -107,3 +107,7 @@ const seededStudies: StudySummaryCardModel[] = [
 ];
 
 export const studies = seededStudies;
+
+export function getStudyById(studyId: string) {
+  return studies.find((study) => study.id === studyId);
+}

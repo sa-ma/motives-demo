@@ -57,7 +57,9 @@ const accentClasses = {
 export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
   const accent = accentClasses[study.accent];
   const primaryActionHref =
-    study.accent === "planning" ? `/studies/${study.id}/plan` : undefined;
+    study.accent === "planning"
+      ? `/studies/${study.id}/plan`
+      : `/studies/${study.id}`;
 
   return (
     <Card className="rounded-3xl border-zinc-200/70 bg-white/95 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)]">
@@ -163,8 +165,8 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
               <Sparkles className="size-4" />
             </div>
             <div className="space-y-1">
-              <p className="text-[13px] font-semibold">AI Observation</p>
-              <p className="text-[14px] leading-6">{study.observation}</p>
+              <p className="text-[12px] font-semibold">AI Observation</p>
+              <p className="text-[12px] leading-6">{study.observation}</p>
             </div>
           </div>
         </div>
