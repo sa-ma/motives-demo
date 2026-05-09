@@ -1,0 +1,41 @@
+apps/web/src/components/layout/app-sidebar.tsx
+  s_43ba30c152dfbb::t_41e453ce6a111a 20-29,56
+  s_43ba30c152dfbb::t_883e0d8adb1e1c 83-90,154,169
+  s_43ba30c152dfbb::t_8fd3413959205e 1-2,4,34,38,40,63-82,132-133,151-153,155,166-168,170
+apps/web/src/components/studies/studies.mock.ts
+  s_43ba30c152dfbb::t_8fd3413959205e 1-107
+apps/web/src/components/studies/studies-page.tsx
+  s_43ba30c152dfbb::t_8fd3413959205e 1-19
+apps/web/src/components/studies/studies-toolbar.tsx
+  s_43ba30c152dfbb::t_69e1766a8aa4ff 34,54
+  s_43ba30c152dfbb::t_8fd3413959205e 1-33,35-53,55-93
+apps/web/src/components/studies/study-summary-card.tsx
+  s_43ba30c152dfbb::t_5d6311ee3e67a2 30,41
+  s_43ba30c152dfbb::t_1e0b98336da434 116
+  s_43ba30c152dfbb::t_e53bf1ef57b42b 11,22,33,44,85
+  s_43ba30c152dfbb::t_a003b077e584ed 12,19
+  s_43ba30c152dfbb::t_c4a0c5d6db32cb 86
+  s_43ba30c152dfbb::t_8fd3413959205e 2-10,15,20-21,24-29,31-32,35-40,42-43,46-51,53-84,87-115,117-175,177-184,186-199
+  s_43ba30c152dfbb::t_69e1766a8aa4ff 13-14,16-18
+  s_43ba30c152dfbb::t_6c373a7bd9e292 52
+  s_43ba30c152dfbb::t_fb3e9353951e25 23,34,45,176
+  s_43ba30c152dfbb::t_c8203e97070565 1,185
+apps/web/src/app/(app)/studies/page.tsx
+  s_43ba30c152dfbb::t_8fd3413959205e 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "9ea886ff38d1f357214d0fdddbdac8f9c4979430",
+  "prompts": {},
+  "sessions": {
+    "s_43ba30c152dfbb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0a4b-cfe3-7963-85ea-5ed9316519bf",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
