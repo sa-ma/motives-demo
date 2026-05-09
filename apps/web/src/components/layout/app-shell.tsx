@@ -16,7 +16,7 @@ import {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-white">
-      <aside className="hidden w-[278px] shrink-0 border-r border-zinc-200/80 bg-zinc-50/70 lg:block">
+      <aside className="hidden h-screen w-[278px] shrink-0 border-r border-zinc-200/80 bg-zinc-50/70 lg:sticky lg:top-0 lg:block">
         <AppSidebarContent />
       </aside>
 

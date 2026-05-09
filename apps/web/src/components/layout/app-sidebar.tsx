@@ -1,50 +1,58 @@
+"use client";
+
 import Link from "next/link";
-import {
-  BookOpenText,
-  ChevronDown,
-  FilePlus2,
-  FileText,
-  Lightbulb,
-  UsersRound,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { BookOpenText } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-const mainNavItems = [
-  {
-    label: "New Study",
-    href: "/studies/new",
-    icon: FilePlus2,
-    active: true,
-  },
+type NavMatch = "exact" | "prefix";
+
+type NavItem = {
+  label: string;
+  href?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  match?: NavMatch;
+};
+
+const mainNavItems: readonly NavItem[] = [
   {
     label: "Studies",
+    href: "/studies",
     icon: BookOpenText,
-  },
-  {
-    label: "Participants",
-    icon: UsersRound,
-  },
-  {
-    label: "Templates",
-    icon: FileText,
-  },
-  {
-    label: "Insights",
-    icon: Lightbulb,
+    match: "prefix",
   },
 ] as const;
 
-const settingsItems = [
-  {
-    label: "Settings",
-    icon: Settings,
-  },
-] as const;
+function isActivePath(
+  pathname: string,
+  href: string | undefined,
+  match: NavMatch = "exact",
+) {
+  if (!href) {
+    return false;
+  }
+
+  if (match === "exact") {
+    return pathname === href;
+  }
+
+  if (href === "/") {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function getNavItemActiveState(pathname: string, item: NavItem) {
+  if (item.href === "/studies" && pathname === "/studies/new") {
+    return false;
+  }
+
+  return isActivePath(pathname, item.href, item.match);
+}
 
 function SidebarItem({
   label,
@@ -87,6 +95,8 @@ function SidebarItem({
 }
 
 export function AppSidebarContent() {
+  const pathname = usePathname();
+
   return (
     <div className="flex h-full flex-col bg-white px-5 py-6">
       <div className="flex items-center">
@@ -97,51 +107,25 @@ export function AppSidebarContent() {
 
       <Separator className="mt-6 mb-7" />
 
-      <div className="space-y-8">
-        <section className="space-y-2.5">
-          <p className="px-1 text-[11px] font-semibold tracking-[0.14em] text-zinc-400 uppercase">
-            Main
-          </p>
-          <nav className="space-y-1">
-            {mainNavItems.map((item) => (
-              <SidebarItem key={item.label} {...item} />
-            ))}
-          </nav>
-        </section>
+      <nav className="space-y-1">
+        {mainNavItems.map((item) => (
+          <SidebarItem
+            key={item.label}
+            {...item}
+            active={getNavItemActiveState(pathname, item)}
+          />
+        ))}
+      </nav>
 
-        <section className="space-y-2.5">
-          <p className="px-1 text-[11px] font-semibold tracking-[0.14em] text-zinc-400 uppercase">
-            Settings
-          </p>
-          <nav className="space-y-1">
-            {settingsItems.map((item) => (
-              <SidebarItem key={item.label} {...item} />
-            ))}
-          </nav>
-        </section>
-      </div>
-
-      <div className="mt-auto rounded-md border border-zinc-200 bg-white px-3 py-3 shadow-[0_18px_38px_-28px_rgba(15,23,42,0.32)]">
-        <div className="flex items-center gap-3">
-          <Avatar className="size-12">
-            <AvatarFallback>SC</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-zinc-950">Sarah Chen</p>
-            <div className="flex items-center gap-1 text-[13px] text-zinc-500">
-              <Sparkles className="size-3.5 text-primary" />
-              <span>Researcher</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="inline-flex size-8 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-            aria-label="Open user menu"
-          >
-            <ChevronDown className="size-4" />
-          </button>
-        </div>
-      </div>
+      <button
+        type="button"
+        className="mt-auto inline-flex size-11 items-center justify-center rounded-full transition-colors hover:bg-zinc-100"
+        aria-label="Open user menu"
+      >
+        <Avatar className="size-11">
+          <AvatarFallback>SC</AvatarFallback>
+        </Avatar>
+      </button>
     </div>
   );
 }
