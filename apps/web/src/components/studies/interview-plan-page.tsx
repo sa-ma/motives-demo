@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 
 import { EditTopicsDialog } from "@/components/studies/edit-topics-dialog";
 import type { StudyPlanModel } from "@/components/studies/study-plans.mock";
@@ -142,35 +143,45 @@ export function InterviewPlanPage({ plan }: { plan: StudyPlanModel }) {
     <>
       <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))]">
         <div className="flex w-full flex-col gap-6 px-4 py-7 sm:px-6 lg:px-6 lg:py-9 xl:px-8 2xl:px-12">
-          <section className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">
-            <div className="min-w-0 flex-1 space-y-2">
-              <h1 className="font-heading text-[1.9rem] leading-none font-semibold tracking-tight text-zinc-950 sm:text-[2.2rem]">
-                Interview Plan
-              </h1>
-              <p className="text-[15px] leading-7 text-zinc-500">
-                {editablePlan.subtitle}
-              </p>
-            </div>
+          <section className="flex flex-col gap-5">
+            <Link
+              href="/studies"
+              className="inline-flex w-fit items-center gap-2 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-950"
+            >
+              <ArrowLeft className="size-4" />
+              Back to Studies
+            </Link>
 
-            <div className="flex shrink-0 items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="rounded-xl border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
-              >
-                <RefreshCcw className="size-4" />
-                Regenerate Plan
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-lg"
-                className="rounded-xl border-zinc-200 bg-white text-zinc-700 shadow-none hover:bg-zinc-50"
-                aria-label="More actions"
-              >
-                <Ellipsis className="size-5" />
-              </Button>
+            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8">
+              <div className="min-w-0 flex-1 space-y-2">
+                <h1 className="font-heading text-[1.9rem] leading-none font-semibold tracking-tight text-zinc-950 sm:text-[2.2rem]">
+                  Interview Plan
+                </h1>
+                <p className="text-[15px] leading-7 text-zinc-500">
+                  {editablePlan.subtitle}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="rounded-xl border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
+                >
+                  <RefreshCcw className="size-4" />
+                  Regenerate Plan
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-lg"
+                  className="rounded-xl border-zinc-200 bg-white text-zinc-700 shadow-none hover:bg-zinc-50"
+                  aria-label="More actions"
+                >
+                  <Ellipsis className="size-5" />
+                </Button>
+              </div>
             </div>
           </section>
 
