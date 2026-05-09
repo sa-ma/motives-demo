@@ -1,0 +1,91 @@
+apps/web/src/app/interviews/[inviteCode]/welcome/page.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-51
+apps/web/src/app/api/interviews/[inviteCode]/session/route.ts
+  s_3662a73b716968::t_2f5aaea6600741 1-64
+apps/web/src/components/ai-elements/conversation.tsx
+  s_3662a73b716968::t_587ceac4af4896 1-29
+apps/web/src/components/interviews/invite-state.tsx
+  s_3662a73b716968::t_b4a9e8d1d093b9 1-38
+apps/web/src/app/interviews/[inviteCode]/room/page.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-51
+apps/web/src/lib/interviews/session.ts
+  s_3662a73b716968::t_587ceac4af4896 1-139
+apps/web/src/lib/interviews/types.ts
+  s_3662a73b716968::t_587ceac4af4896 1-84
+apps/web/src/components/ui/checkbox.tsx
+  s_3662a73b716968::t_587ceac4af4896 1-24
+apps/web/src/app/interviews/[inviteCode]/layout.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-7
+apps/web/src/lib/interviews/mock.ts
+  s_3662a73b716968::t_587ceac4af4896 1-280
+apps/web/src/components/interviews/interview-room.tsx
+  s_3662a73b716968::t_52cccbdb0e5ed7 280
+  s_3662a73b716968::t_19b9a562a264fd 99-100,279
+  s_3662a73b716968::t_e367aefa0ee467 143
+  s_3662a73b716968::t_b4a9e8d1d093b9 1-98,101-142,144-278,287-296,298-304,306,310-311,313,315,318-331
+  s_3662a73b716968::t_b67a61a7465848 281-286,297,305,307-309,312,314,316-317
+apps/web/src/app/interviews/[inviteCode]/page.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-37
+apps/web/src/components/ai-elements/prompt-input.tsx
+  s_3662a73b716968::t_587ceac4af4896 1-14,16-57
+  s_3662a73b716968::t_2ab9919a9d8825 15
+apps/web/src/components/interviews/participant-shell.tsx
+  s_3662a73b716968::t_dcba7007b292ef 14-19,25
+  s_3662a73b716968::t_b4a9e8d1d093b9 1-13,20-23,26-43,45-69
+  s_3662a73b716968::t_b89ef0c74eacb7 24,44
+apps/web/package.json
+  s_3662a73b716968::t_c08a8c90f89e53 13,15
+apps/web/src/components/interviews/participant-details-form.tsx
+  s_3662a73b716968::t_2d49b6d5de580c 7
+  s_3662a73b716968::t_9f0b3c73d18ae4 118
+  s_3662a73b716968::t_f76e34046d5801 142,145
+  s_3662a73b716968::t_b4a9e8d1d093b9 1-4,6,8-52,56-97,102-103,105-113,123-125,127-141,143-144,146-148,150-165,167-174,176-225,227,229-231,233-255
+  s_3662a73b716968::t_394d5d4f44e2a0 104
+  s_3662a73b716968::t_379f95dd42b462 114
+  s_3662a73b716968::t_db0f1545a2fd2b 115-117,119-122
+  s_3662a73b716968::t_530bf9c1e7032a 126,149
+  s_3662a73b716968::t_64be3d259c82ee 166,175
+  s_3662a73b716968::t_ec3051b872057b 5,53-55
+  s_3662a73b716968::t_a7f1fb8897fee2 101
+  s_3662a73b716968::t_f55d605cea5ba4 226,228,232
+apps/web/src/app/interviews/[inviteCode]/complete/page.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-51
+apps/web/src/components/interviews/complete-screen.tsx
+  s_3662a73b716968::t_bb7e050fc436dc 1,10-11,19,24,26-29,31-32
+  s_3662a73b716968::t_4e8f77b7562685 3
+  s_3662a73b716968::t_b4a9e8d1d093b9 2,4-6,8,12-13,16-17,20-22,33-38
+  s_3662a73b716968::t_bc6cc7b80b36b0 7
+  s_3662a73b716968::t_33db54575b381e 9,14,23
+  s_3662a73b716968::t_6cc2ef04be6b2a 15
+  s_3662a73b716968::t_551a47f532e5e2 18,25,30
+apps/web/src/app/interviews/[inviteCode]/preparing/page.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-51
+apps/web/src/components/interviews/welcome-screen.tsx
+  s_3662a73b716968::t_311b16260770ca 7,30,42-43,47-49,59,69
+  s_3662a73b716968::t_b4a9e8d1d093b9 1-6,8-29,31,36-37,39-40,44-46,50-56,58,60-68,70-102,104-111
+  s_3662a73b716968::t_7dda36100911ed 32-35,38,41,57,103
+apps/web/src/app/interviews/[inviteCode]/details/page.tsx
+  s_3662a73b716968::t_2f5aaea6600741 1-54
+apps/web/src/components/interviews/preparing-screen.tsx
+  s_3662a73b716968::t_b4a9e8d1d093b9 1-123
+apps/web/src/components/ai-elements/message.tsx
+  s_3662a73b716968::t_587ceac4af4896 1-71
+apps/web/src/app/api/interviews/[inviteCode]/chat/route.ts
+  s_3662a73b716968::t_2f5aaea6600741 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "17bd8f348ee23f24133425281dc1e28ba1a9b71c",
+  "prompts": {},
+  "sessions": {
+    "s_3662a73b716968": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0d36-4a26-7110-9744-719951d1f9bf",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
