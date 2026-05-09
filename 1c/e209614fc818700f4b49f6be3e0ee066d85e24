@@ -1,0 +1,19 @@
+apps/web/src/app/page.tsx
+  s_e22b4632eae420::t_339dc620edf0ef 1,4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "1ce209614fc818700f4b49f6be3e0ee066d85e24",
+  "prompts": {},
+  "sessions": {
+    "s_e22b4632eae420": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0d35-bae2-7b40-bab6-84908f8bd637",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
