@@ -8,3 +8,5 @@ apps/*/dist
 apps/*/coverage
 
 pnpm-debug.log*
+
+.playwright-mcp/
