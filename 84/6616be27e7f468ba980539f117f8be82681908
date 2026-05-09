@@ -1,0 +1,53 @@
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_6dc1f888e252bd::t_c2611b1091c9a0 137-143,154,158
+apps/web/src/components/interviews/interview-debrief-page.tsx
+  s_6dc1f888e252bd::t_c798ce79b28179 219
+  s_6dc1f888e252bd::t_5b2e18d3d2e5f6 503-504,506-510,513-514,517-518,520-524,532,536,555
+  s_6dc1f888e252bd::t_7a739c89e64483 4,27,395,399,402,596-616,658-684
+  s_6dc1f888e252bd::t_00300cce48288c 624
+  s_6dc1f888e252bd::t_c11bab0a49048f 833,864
+  s_6dc1f888e252bd::t_8d067b5e3d0c47 493,623,655
+  s_6dc1f888e252bd::t_473b61db1b2de4 25
+  s_6dc1f888e252bd::t_ae4bab47d8343e 492
+  s_6dc1f888e252bd::t_43b057440d9a08 1-3,5-9,11-24,26,28-104,106-117,121-124,128-129,136,148-218,220-228,230-251,254-255,260-261,263-282,285-292,294-301,303,307-319,321-332,335-346,348-353,356-374,376-393,396-397,400-401,421-475,477-481,483-491,494-499,512,581-593,617-622,625-630,633-635,638-644,646-654,656-657,685-832,835-838,840-863,865-879,881-896
+  s_6dc1f888e252bd::t_26aa5d452ebead 540-541,545,556,558-565,567-569,574,631
+  s_6dc1f888e252bd::t_76c878b7f18713 420
+  s_6dc1f888e252bd::t_ebe75597f70ce5 229,302,304-306,320
+  s_6dc1f888e252bd::t_d97a80b888a8b3 566,570,578-579
+  s_6dc1f888e252bd::t_6f258b56db9624 594-595
+  s_6dc1f888e252bd::t_9ad7ec7f5672fc 252,256-257,262,283-284,293,333-334,354-355,375
+  s_6dc1f888e252bd::t_060e4f269a0b1d 500
+  s_6dc1f888e252bd::t_617be0a83dca98 527
+  s_6dc1f888e252bd::t_e1277bf15f6361 501-502,505,511,515-516,519,526,528-531,533-535,537-539,542-544,546-554,557,571-573,575-577,580
+  s_6dc1f888e252bd::t_c5283159a81b30 476,482,525,632,636-637,645
+  s_6dc1f888e252bd::t_d9ed26f6bce1f2 834,839
+  s_6dc1f888e252bd::t_dce237cd0183c8 10,394,398,409-418
+  s_6dc1f888e252bd::t_0e757d7bc4b9f3 253,258-259,347
+  s_6dc1f888e252bd::t_704a7d6f6361f2 880
+  s_6dc1f888e252bd::t_6c420b04822838 105
+  s_6dc1f888e252bd::t_269fb1f0dafc4e 118-120,125-127,130-135,137-147,403-408,419
+apps/web/src/components/interviews/interview-debrief.mock.ts
+  s_6dc1f888e252bd::t_43b057440d9a08 1-348
+apps/web/src/components/studies/study-detail-page.tsx
+  s_6dc1f888e252bd::t_e9f0dfea891e0a 288-331,538-541,546,620-623,628
+apps/web/src/app/(app)/studies/[studyId]/plan/page.tsx
+  s_6dc1f888e252bd::t_c2611b1091c9a0 18
+apps/web/src/app/(app)/studies/[studyId]/interviews/[sessionId]/debrief/page.tsx
+  s_6dc1f888e252bd::t_43b057440d9a08 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "846616be27e7f468ba980539f117f8be82681908",
+  "prompts": {},
+  "sessions": {
+    "s_6dc1f888e252bd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0e20-f983-7520-bb35-0a8e01c40839",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
