@@ -1,0 +1,99 @@
+apps/web/src/app/(app)/studies/new/page.tsx
+  s_5daedb79d635b6::t_db263a2273cda1 1-5
+apps/web/src/app/(app)/layout.tsx
+  s_5daedb79d635b6::t_db263a2273cda1 1-9
+apps/web/src/components/ui/textarea.tsx
+  s_5daedb79d635b6::t_15669cc7a1fdca 14
+  s_5daedb79d635b6::t_db263a2273cda1 1-13,15-24
+apps/web/src/components/ui/avatar.tsx
+  s_5daedb79d635b6::t_01efb47ecb4818 23-31
+  s_5daedb79d635b6::t_db263a2273cda1 1-22,32-53
+apps/web/src/components/studies/study-page-header.tsx
+  s_5daedb79d635b6::t_038ace76b3abc2 1-6,10-11,13-20,23-29,32-39
+  s_5daedb79d635b6::t_20fb358165550f 9
+  s_5daedb79d635b6::t_cec1e5dd26059d 21-22,30-31
+  s_5daedb79d635b6::t_572f6622de92c4 12
+  s_5daedb79d635b6::t_33f73832c2e27d 7-8
+apps/web/src/app/globals.css
+  s_5daedb79d635b6::t_33f73832c2e27d 75
+  s_5daedb79d635b6::t_7864162311726e 58-59,69,78-79,93-94,104,112-113,126-128
+  s_5daedb79d635b6::t_92cd07d5cfe7d8 10-12
+apps/web/src/components/studies/study-form.tsx
+  s_5daedb79d635b6::t_5825e44d22b6eb 141
+  s_5daedb79d635b6::t_f64c4654e7d9f3 1-45,47-71,73-89,91-101,103-126,129-137,139-140,142-148
+  s_5daedb79d635b6::t_98d551131ed847 46,90,127-128
+  s_5daedb79d635b6::t_ca2443deec4571 138
+  s_5daedb79d635b6::t_33f73832c2e27d 72,102
+apps/web/src/components/studies/new-study-page.tsx
+  s_5daedb79d635b6::t_f64c4654e7d9f3 1-7,9-10,12-23
+  s_5daedb79d635b6::t_33f73832c2e27d 8,11
+apps/web/src/components/studies/ai-assist-panel.tsx
+  s_5daedb79d635b6::t_5825e44d22b6eb 18,40,49,55
+  s_5daedb79d635b6::t_33f73832c2e27d 16,19,26
+  s_5daedb79d635b6::t_f64c4654e7d9f3 1-15,17,20,22-25,27,29-39,41-48,50-54,56-57,59-66
+  s_5daedb79d635b6::t_572f6622de92c4 21,28
+  s_5daedb79d635b6::t_45516ddfe17250 58
+apps/web/src/components/ui/input.tsx
+  s_5daedb79d635b6::t_15669cc7a1fdca 13
+  s_5daedb79d635b6::t_db263a2273cda1 1-12,14-24
+apps/web/src/components/ui/separator.tsx
+  s_5daedb79d635b6::t_db263a2273cda1 1-27
+.gitignore
+  s_5daedb79d635b6::t_55eaf12d51acaa 11-12
+apps/web/src/components/layout/app-shell.tsx
+  s_5daedb79d635b6::t_038ace76b3abc2 1-17,22,31,53,55-58
+  s_5daedb79d635b6::t_06e38e5fb0d362 18,20-21,23-25,27-28,30,32-37,39-52,54
+  s_5daedb79d635b6::t_5825e44d22b6eb 38
+  s_5daedb79d635b6::t_33f73832c2e27d 19
+  s_5daedb79d635b6::t_572f6622de92c4 26,29
+apps/web/src/components/studies/study-field.tsx
+  s_5daedb79d635b6::t_f64c4654e7d9f3 1-24,41,45-49
+  s_5daedb79d635b6::t_572f6622de92c4 42-44
+  s_5daedb79d635b6::t_98d551131ed847 25,29,36
+  s_5daedb79d635b6::t_45516ddfe17250 26-28,30-35,37-40
+apps/web/src/components/ui/button.tsx
+  s_5daedb79d635b6::t_5825e44d22b6eb 7,25-26,30,32
+apps/web/src/components/studies/topic-chip-list.tsx
+  s_5daedb79d635b6::t_5e6ace6ca68f59 19,21,29,34
+  s_5daedb79d635b6::t_1639f47a0eafff 26
+  s_5daedb79d635b6::t_f64c4654e7d9f3 1-18,20,22-25,27-28,30-33,35-40
+apps/web/src/app/layout.tsx
+  s_5daedb79d635b6::t_70cb1fa47c8bbb 2,5-6,28
+  s_5daedb79d635b6::t_7864162311726e 16-17
+apps/web/src/components/ui/badge.tsx
+  s_5daedb79d635b6::t_db263a2273cda1 1-6,8-37
+  s_5daedb79d635b6::t_5825e44d22b6eb 7
+apps/web/src/components/layout/app-sidebar.tsx
+  s_5daedb79d635b6::t_d30a5d48ab4f4e 6-8,28-39,41,91-95
+  s_5daedb79d635b6::t_2042247c644eae 61,63
+  s_5daedb79d635b6::t_5825e44d22b6eb 124
+  s_5daedb79d635b6::t_038ace76b3abc2 1-5,9-27,42-44,46-60,62,64-90,96-97,99,102-104,107-111,113-115,117-123,125-129,132-147
+  s_5daedb79d635b6::t_3e9bef4aa37dd8 40,106
+  s_5daedb79d635b6::t_e8def66ca561c3 45
+  s_5daedb79d635b6::t_572f6622de92c4 130-131
+  s_5daedb79d635b6::t_33f73832c2e27d 98,100-101,105,112,116
+apps/web/src/components/studies/duration-selector.tsx
+  s_5daedb79d635b6::t_f64c4654e7d9f3 1-2,4-17,19-22,24-25,28-29,31,34-37,39-43
+  s_5daedb79d635b6::t_3e05065f3d5c05 3,18,23,26-27,30,32-33,38
+apps/web/src/components/ui/sheet.tsx
+  s_5daedb79d635b6::t_db263a2273cda1 1-125
+apps/web/src/components/ui/card.tsx
+  s_5daedb79d635b6::t_db263a2273cda1 1-9,11-22
+  s_5daedb79d635b6::t_5825e44d22b6eb 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "6447d9bf4a02ecb62a85ee97e4ebc3eb575786e3",
+  "prompts": {},
+  "sessions": {
+    "s_5daedb79d635b6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e09d8-465e-78c2-9a26-f0fe5e191b05",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
