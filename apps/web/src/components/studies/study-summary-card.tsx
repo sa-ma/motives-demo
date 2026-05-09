@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Activity, ArrowRight, Ellipsis, Sparkles, UsersRound } from "lucide-react";
 
 import type { StudySummaryCardModel } from "@/components/studies/studies.mock";
@@ -55,6 +56,8 @@ const accentClasses = {
 
 export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
   const accent = accentClasses[study.accent];
+  const primaryActionHref =
+    study.accent === "planning" ? `/studies/${study.id}/plan` : undefined;
 
   return (
     <Card className="rounded-3xl border-zinc-200/70 bg-white/95 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)]">
@@ -170,20 +173,31 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
           <p className="text-[14px] text-zinc-500">{study.updatedLabel}</p>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className={buttonVariants({
-                variant: accent.buttonVariant,
-                size: "lg",
-                className: cn(
-                  "rounded-xl px-4 shadow-none",
-                  accent.cta,
-                ),
-              })}
-            >
-              {study.actionLabel}
-              <ArrowRight className="size-4" />
-            </button>
+            {primaryActionHref ? (
+              <Link
+                href={primaryActionHref}
+                className={buttonVariants({
+                  variant: accent.buttonVariant,
+                  size: "lg",
+                  className: cn("rounded-xl px-4 shadow-none", accent.cta),
+                })}
+              >
+                {study.actionLabel}
+                <ArrowRight className="size-4" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className={buttonVariants({
+                  variant: accent.buttonVariant,
+                  size: "lg",
+                  className: cn("rounded-xl px-4 shadow-none", accent.cta),
+                })}
+              >
+                {study.actionLabel}
+                <ArrowRight className="size-4" />
+              </button>
+            )}
             <button
               type="button"
               className="inline-flex size-10 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 hover:text-zinc-700"
