@@ -1,5 +1,7 @@
 import { Type, type Static } from "@sinclair/typebox";
 
+export const SKIP_QUESTION_MESSAGE = "Let's skip this question.";
+
 export const ParticipantResponseValueSchema = Type.Union([
   Type.String(),
   Type.Boolean(),
@@ -89,6 +91,17 @@ export const InterviewProgressStateSchema = Type.Object({
 
 export type InterviewProgressState = Static<typeof InterviewProgressStateSchema>;
 
+export const InterviewMessageMetadataSchema = Type.Object(
+  {
+    assistantTurnId: Type.Optional(Type.String()),
+    progressState: Type.Optional(InterviewProgressStateSchema),
+    timestampLabel: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export type InterviewMessageMetadata = Static<typeof InterviewMessageMetadataSchema>;
+
 export const InterviewSessionStateSchema = Type.Object({
   inviteCode: Type.String(),
   participantResponses: ParticipantResponsesSchema,
@@ -147,3 +160,38 @@ export const PublicInterviewActionResponseSchema = Type.Object({
 
 export type PublicInterviewActionResponse = Static<typeof PublicInterviewActionResponseSchema>;
 
+export const PublicInterviewChatEventSchema = Type.Union([
+  Type.Literal("answer"),
+  Type.Literal("skip-question"),
+]);
+
+export type PublicInterviewChatEvent = Static<typeof PublicInterviewChatEventSchema>;
+
+export const PublicInterviewChatMessageSchema = Type.Object(
+  {
+    id: Type.String(),
+    parts: Type.Array(
+      Type.Object(
+        {
+          type: Type.String(),
+        },
+        { additionalProperties: true },
+      ),
+    ),
+    role: Type.Literal("user"),
+  },
+  { additionalProperties: true },
+);
+
+export type PublicInterviewChatMessage = Static<typeof PublicInterviewChatMessageSchema>;
+
+export const PublicInterviewChatInputSchema = Type.Object(
+  {
+    event: Type.Optional(PublicInterviewChatEventSchema),
+    id: Type.String(),
+    message: PublicInterviewChatMessageSchema,
+  },
+  { additionalProperties: false },
+);
+
+export type PublicInterviewChatInput = Static<typeof PublicInterviewChatInputSchema>;

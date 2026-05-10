@@ -94,6 +94,8 @@ export const StudySummarySchema = Type.Object({
   description: Type.String(),
   status: StudyStatusSchema,
   statusLabel: Type.String(),
+  canStartInterview: Type.Boolean(),
+  latestInviteUrl: Type.Optional(Type.String()),
   interviewsCompleted: Type.Number(),
   interviewsTarget: Type.Number(),
   coverage: Type.Number(),
@@ -108,6 +110,34 @@ export const StudySummarySchema = Type.Object({
 });
 
 export type StudySummary = Static<typeof StudySummarySchema>;
+
+export const StudyListStatusFilterSchema = Type.Union([
+  Type.Literal("active"),
+  Type.Literal("planning"),
+  Type.Literal("interviewing"),
+  Type.Literal("analyzing"),
+  Type.Literal("completed"),
+]);
+
+export type StudyListStatusFilter = Static<typeof StudyListStatusFilterSchema>;
+
+export const StudyListSortSchema = Type.Union([
+  Type.Literal("updated-desc"),
+  Type.Literal("updated-asc"),
+]);
+
+export type StudyListSort = Static<typeof StudyListSortSchema>;
+
+export const ListStudiesQuerySchema = Type.Object(
+  {
+    q: Type.Optional(Type.String({ maxLength: 120 })),
+    sort: Type.Optional(StudyListSortSchema),
+    status: Type.Optional(StudyListStatusFilterSchema),
+  },
+  { additionalProperties: false },
+);
+
+export type ListStudiesQuery = Static<typeof ListStudiesQuerySchema>;
 
 export const StudyDetailSchema = Type.Object({
   studyId: Type.String(),
@@ -154,4 +184,3 @@ export const CreateStudyResponseSchema = Type.Object({
 });
 
 export type CreateStudyResponse = Static<typeof CreateStudyResponseSchema>;
-

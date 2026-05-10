@@ -8,6 +8,13 @@
       "when": 1778364872728,
       "tag": "0000_loose_mephistopheles",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778432649613,
+      "tag": "0001_clever_black_tarantula",
+      "breakpoints": true
     }
   ]
 }

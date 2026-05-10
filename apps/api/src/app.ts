@@ -4,6 +4,8 @@ import sensible from "@fastify/sensible";
 
 import { ApiError } from "./lib/errors.js";
 import { loadApiEnv } from "./lib/env.js";
+import type { InterviewAiService } from "./ai/service.js";
+import { aiPlugin } from "./plugins/ai.js";
 import { databasePlugin } from "./plugins/database.js";
 import { healthRoutes } from "./routes/health.js";
 import { publicInterviewsRoutes } from "./routes/public-interviews.js";
@@ -14,6 +16,7 @@ loadApiEnv();
 type BuildAppOptions = {
   appBaseUrl?: string;
   databaseUrl?: string;
+  interviewAiService?: InterviewAiService;
 };
 
 function isHttpError(
@@ -73,6 +76,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.register(databasePlugin, {
     appBaseUrl: options.appBaseUrl ?? process.env.APP_BASE_URL ?? "http://localhost:3000",
     databaseUrl,
+  });
+  app.register(aiPlugin, {
+    interviewAiService: options.interviewAiService,
   });
   app.register(healthRoutes, { prefix: "/health" });
   app.register(studiesRoutes, { prefix: "/v1/studies" });

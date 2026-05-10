@@ -46,6 +46,7 @@ export default async function InterviewRoomPage({
     <InterviewRoom
       invite={routeState.invite}
       initialMessages={routeState.session.transcript.map(toInterviewUIMessage)}
+      initialProgressState={routeState.session.progressState}
     />
   );
 }

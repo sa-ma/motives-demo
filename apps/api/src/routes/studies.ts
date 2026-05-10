@@ -14,6 +14,7 @@ import {
 import {
   CreateStudyInputSchema,
   CreateStudyResponseSchema,
+  ListStudiesQuerySchema,
   StudyDetailSchema,
   StudySummarySchema,
 } from "@motives-ai/contracts/studies";
@@ -43,6 +44,7 @@ const studiesRoutesPlugin: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const study = await createStudy(
         app.db,
+        app.appBaseUrl,
         request.body as import("@motives-ai/contracts").CreateStudyInput,
       );
       reply.code(201);
@@ -54,13 +56,18 @@ const studiesRoutesPlugin: FastifyPluginAsync = async (app) => {
     "/",
     {
       schema: {
+        querystring: ListStudiesQuerySchema,
         response: {
           200: Type.Array(StudySummarySchema),
         },
       },
     },
-    async () => {
-      return await listStudies(app.db);
+    async (request) => {
+      return await listStudies(
+        app.db,
+        app.appBaseUrl,
+        request.query as import("@motives-ai/contracts").ListStudiesQuery,
+      );
     },
   );
 

@@ -1,18 +1,39 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowUpDown, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, Plus, Search, SlidersHorizontal } from "lucide-react";
+
+import type { StudyListSort } from "@motives-ai/contracts";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const tabs = ["All Studies", "Active", "Completed", "Planning"] as const;
+export const studyToolbarTabs = [
+  "All Studies",
+  "Active",
+  "Completed",
+  "Planning",
+] as const;
+
+export type StudiesToolbarTab = (typeof studyToolbarTabs)[number];
 
 type StudiesToolbarProps = {
-  selectedTab?: (typeof tabs)[number];
+  searchValue: string;
+  selectedTab: StudiesToolbarTab;
+  sort: StudyListSort;
+  onSearchValueChange: (value: string) => void;
+  onSelectedTabChange: (tab: StudiesToolbarTab) => void;
+  onSortChange: (sort: StudyListSort) => void;
 };
 
 export function StudiesToolbar({
-  selectedTab = "All Studies",
+  onSearchValueChange,
+  onSelectedTabChange,
+  onSortChange,
+  searchValue,
+  selectedTab,
+  sort,
 }: StudiesToolbarProps) {
   return (
     <div className="flex flex-col gap-6">
@@ -41,13 +62,14 @@ export function StudiesToolbar({
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <nav className="flex flex-wrap gap-2">
-          {tabs.map((tab) => {
+          {studyToolbarTabs.map((tab) => {
             const isActive = tab === selectedTab;
 
             return (
               <button
                 key={tab}
                 type="button"
+                onClick={() => onSelectedTabChange(tab)}
                 className={cn(
                   "rounded-full px-4 py-2 text-sm font-medium transition-colors",
                   isActive
@@ -68,23 +90,28 @@ export function StudiesToolbar({
               aria-label="Search studies"
               placeholder="Search studies..."
               className="h-10 rounded-xl border-zinc-200/80 bg-white pl-9 shadow-none"
+              value={searchValue}
+              onChange={(event) => onSearchValueChange(event.target.value)}
             />
           </div>
 
           <button
             type="button"
+            aria-label={`Sort studies by last updated ${
+              sort === "updated-desc" ? "oldest first" : "latest first"
+            }`}
+            onClick={() =>
+              onSortChange(sort === "updated-desc" ? "updated-asc" : "updated-desc")
+            }
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200/80 bg-white px-3.5 text-sm font-medium text-zinc-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-zinc-50"
           >
             <span>Last updated</span>
-            <ArrowUpDown className="size-4 text-zinc-400" />
-          </button>
-
-          <button
-            type="button"
-            className="inline-flex size-10 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-zinc-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-zinc-50"
-            aria-label="Filter studies"
-          >
-            <SlidersHorizontal className="size-4" />
+            <ArrowDown
+              className={cn(
+                "size-4 text-zinc-400 transition-transform",
+                sort === "updated-desc" ? "rotate-0" : "rotate-180",
+              )}
+            />
           </button>
         </div>
       </div>

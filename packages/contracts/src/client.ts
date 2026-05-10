@@ -16,6 +16,7 @@ import type {
 import type {
   CreateStudyInput,
   CreateStudyResponse,
+  ListStudiesQuery,
   StudyDetail,
   StudySummary,
 } from "./studies.js";
@@ -78,6 +79,29 @@ export function createApiClient(options: {
     return payload as T;
   }
 
+  function appendQuery(
+    path: string,
+    query?: Record<string, string | undefined>,
+  ) {
+    if (!query) {
+      return path;
+    }
+
+    const params = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(query)) {
+      if (!value) {
+        continue;
+      }
+
+      params.set(key, value);
+    }
+
+    const serialized = params.toString();
+
+    return serialized ? `${path}?${serialized}` : path;
+  }
+
   return {
     studies: {
       create(input: CreateStudyInput) {
@@ -86,8 +110,14 @@ export function createApiClient(options: {
           method: "POST",
         });
       },
-      list() {
-        return request<StudySummary[]>("/v1/studies");
+      list(query: ListStudiesQuery = {}) {
+        return request<StudySummary[]>(
+          appendQuery("/v1/studies", {
+            q: query.q?.trim() || undefined,
+            sort: query.sort,
+            status: query.status,
+          }),
+        );
       },
       detail(studyId: string) {
         return request<StudyDetail>(`/v1/studies/${studyId}`);
@@ -140,4 +170,3 @@ export function createApiClient(options: {
     },
   };
 }
-

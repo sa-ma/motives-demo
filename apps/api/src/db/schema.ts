@@ -3,6 +3,7 @@ import type {
   StudyPlan,
 } from "@motives-ai/contracts/plans";
 import type {
+  InterviewProgressState,
   InterviewSessionStatus,
   ParticipantFieldOption,
   ParticipantIntakeField,
@@ -209,18 +210,57 @@ export const transcriptTurn = pgTable(
     sessionId: text("session_id")
       .notNull()
       .references(() => interviewSession.id, { onDelete: "cascade" }),
+    clientMessageId: text("client_message_id"),
+    providerResponseId: text("provider_response_id"),
     role: transcriptRoleEnum("role").$type<"assistant" | "user">().notNull(),
     text: text("text").notNull(),
+    model: text("model"),
+    finishReason: text("finish_reason"),
     timestampLabel: text("timestamp_label").notNull(),
     createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
     sortOrder: integer("sort_order").notNull(),
   },
   (table) => ({
+    sessionClientMessageUniqueIdx: uniqueIndex(
+      "transcript_turn_session_client_message_unique",
+    )
+      .on(table.sessionId, table.clientMessageId)
+      .where(sql`${table.clientMessageId} is not null`),
     sessionSortUniqueIdx: uniqueIndex("transcript_turn_session_sort_order_unique").on(
       table.sessionId,
       table.sortOrder,
     ),
     sessionSortIdx: index("idx_transcript_session").on(table.sessionId, table.sortOrder),
+  }),
+);
+
+export const sessionAnnotation = pgTable(
+  "session_annotation",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => interviewSession.id, { onDelete: "cascade" }),
+    userTurnId: text("user_turn_id")
+      .notNull()
+      .references(() => transcriptTurn.id, { onDelete: "cascade" }),
+    assistantTurnId: text("assistant_turn_id")
+      .notNull()
+      .references(() => transcriptTurn.id, { onDelete: "cascade" }),
+    progressState: jsonb("progress_state").$type<InterviewProgressState>().notNull(),
+    emotionSignal: text("emotion_signal").$type<"low" | "medium" | "high">().notNull(),
+    evidenceQuotes: jsonb("evidence_quotes").$type<string[]>().notNull(),
+    contradictions: jsonb("contradictions").$type<string[]>().notNull(),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    assistantTurnUniqueIdx: uniqueIndex("session_annotation_assistant_turn_unique").on(
+      table.assistantTurnId,
+    ),
+    sessionCreatedIdx: index("idx_session_annotation_session").on(
+      table.sessionId,
+      table.createdAt,
+    ),
   }),
 );
 
@@ -233,5 +273,6 @@ export type InterviewSessionRow = typeof interviewSession.$inferSelect;
 export type InterviewInviteRow = typeof interviewInvite.$inferSelect;
 export type ParticipantProfileRow = typeof participantProfile.$inferSelect;
 export type TranscriptTurnRow = typeof transcriptTurn.$inferSelect;
+export type SessionAnnotationRow = typeof sessionAnnotation.$inferSelect;
 
 export type StoredInterviewBehaviorId = InterviewBehaviorId;

@@ -23,11 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { browserApiClient } from "@/lib/api/client";
-import { buildInterviewProgressState } from "@/lib/interviews/helpers";
 import type {
   InterviewInvitePayload,
+  InterviewProgressState,
   InterviewUIMessage,
 } from "@/lib/interviews/types";
+import { SKIP_QUESTION_MESSAGE } from "@motives-ai/contracts";
 import { cn } from "@/lib/utils";
 
 function getMessageText(message: InterviewUIMessage) {
@@ -39,9 +40,11 @@ function getMessageText(message: InterviewUIMessage) {
 
 export function InterviewRoom({
   invite,
+  initialProgressState,
   initialMessages,
 }: {
   initialMessages: InterviewUIMessage[];
+  initialProgressState: InterviewProgressState;
   invite: InterviewInvitePayload;
 }) {
   const router = useRouter();
@@ -52,13 +55,28 @@ export function InterviewRoom({
     clearError,
     error,
     messages,
-    resumeStream,
     sendMessage,
+    setMessages,
     status,
-  } = useChat({
+  } = useChat<InterviewUIMessage>({
+    id: invite.inviteCode,
     messages: initialMessages,
     transport: new DefaultChatTransport({
       api: `/api/interviews/${invite.inviteCode}/chat`,
+      prepareSendMessagesRequest({ body, id, messages }) {
+        const message = messages[messages.length - 1];
+
+        return {
+          body: {
+            event:
+              typeof body === "object" && body !== null && "event" in body
+                ? body.event
+                : undefined,
+            id,
+            message,
+          },
+        };
+      },
     }),
   });
 
@@ -66,13 +84,23 @@ export function InterviewRoom({
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  const answerCount = messages.filter((message) => message.role === "user").length;
-  const progressState = buildInterviewProgressState(invite.topicLabels, answerCount);
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages, setMessages]);
+
+  const progressState =
+    [...messages]
+      .reverse()
+      .find((message) => message.metadata?.progressState)?.metadata?.progressState ??
+    initialProgressState;
+  const isInterviewCovered =
+    progressState.activeTopicLabel === null &&
+    progressState.coveredTopicLabels.length >= invite.topicLabels.length;
 
   const submitMessage = async (event: "answer" | "skip-question") => {
     const text =
       event === "skip-question"
-        ? "Let's skip this question."
+        ? SKIP_QUESTION_MESSAGE
         : input.trim();
 
     if (!text) {
@@ -136,7 +164,11 @@ export function InterviewRoom({
                   }}
                   className="rounded-md border-rose-200 bg-white text-rose-600 shadow-none hover:bg-rose-50 hover:text-rose-700"
                 >
-                  {isEndingInterview ? "Ending..." : "End interview"}
+                  {isEndingInterview
+                    ? "Ending..."
+                    : isInterviewCovered
+                      ? "Finish interview"
+                      : "End interview"}
                 </Button>
               </div>
             </div>
@@ -160,12 +192,21 @@ export function InterviewRoom({
                   <Button
                     type="button"
                     size="sm"
-                    onClick={() => resumeStream()}
+                    onClick={() => {
+                      clearError();
+                      router.refresh();
+                    }}
                     className="rounded-lg"
                   >
-                    Resume stream
+                    Reload room
                   </Button>
                 </div>
+              </div>
+            ) : null}
+
+            {isInterviewCovered ? (
+              <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-3 text-[13px] text-emerald-800 sm:px-6">
+                We&apos;ve covered all planned topics. You can finish the interview now.
               </div>
             ) : null}
 
@@ -223,7 +264,7 @@ export function InterviewRoom({
                 <Button
                   type="button"
                   variant="link"
-                  disabled={status !== "ready"}
+                  disabled={status !== "ready" || isInterviewCovered}
                   onClick={() => submitMessage("skip-question")}
                   className="h-auto px-0 text-[13px] font-semibold text-primary"
                 >
@@ -231,7 +272,11 @@ export function InterviewRoom({
                   Skip question
                 </Button>
                 <span className="text-[12px] text-zinc-400">
-                  {status === "ready" ? "Press Enter to send" : "Streaming response"}
+                  {isInterviewCovered
+                    ? "Interview coverage complete"
+                    : status === "ready"
+                      ? "Press Enter to send"
+                      : "Streaming response"}
                 </span>
               </div>
 
@@ -243,8 +288,12 @@ export function InterviewRoom({
               >
                 <PromptInputTextarea
                   value={input}
-                  disabled={status !== "ready"}
-                  placeholder="Type your answer..."
+                  disabled={status !== "ready" || isInterviewCovered}
+                  placeholder={
+                    isInterviewCovered
+                      ? "Interview coverage complete."
+                      : "Type your answer..."
+                  }
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
@@ -256,11 +305,15 @@ export function InterviewRoom({
 
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[12px] text-zinc-400">
-                    Short or detailed answers are both fine.
+                    {isInterviewCovered
+                      ? "No more questions are needed from the plan."
+                      : "Short or detailed answers are both fine."}
                   </p>
                   <PromptInputSubmit
                     type="submit"
-                    disabled={status !== "ready" || input.trim().length === 0}
+                    disabled={
+                      status !== "ready" || isInterviewCovered || input.trim().length === 0
+                    }
                   >
                     <ArrowRight className="size-4" />
                   </PromptInputSubmit>

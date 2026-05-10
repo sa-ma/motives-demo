@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Ellipsis, FilePlus2 } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { ArrowLeft} from "lucide-react";
 
 export function StudyPageHeader() {
   return (
@@ -24,26 +22,6 @@ export function StudyPageHeader() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            className="rounded-md border-zinc-200 bg-white text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
-          >
-            <FilePlus2 className="size-4" />
-            Use Template
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="rounded-md border-zinc-200 bg-white text-zinc-700 shadow-none hover:bg-zinc-50"
-            aria-label="More actions"
-          >
-            <Ellipsis className="size-5" />
-          </Button>
-        </div>
       </div>
     </div>
   );

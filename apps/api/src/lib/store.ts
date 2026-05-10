@@ -6,13 +6,16 @@ import type {
   CreateStudyResponse,
   InterviewInvitePayload,
   InterviewMessage,
+  InterviewMessageMetadata,
   InterviewProgressState,
   InterviewSessionState,
   InterviewSessionStatus,
+  ListStudiesQuery,
   ParticipantIntakeField,
   ParticipantResponses,
   PublicInterviewActionInput,
   PublicInterviewActionResponse,
+  PublicInterviewChatEvent,
   PublicInterviewRouteState,
   StudyDetail,
   StudySessionItem,
@@ -28,6 +31,7 @@ import {
   createInterviewSession,
   createInviteCode,
   createParticipantProfile,
+  findLatestActiveInviteForStudy,
   findInviteWithSession,
   findParticipantProfileBySessionId,
   findSessionById,
@@ -45,8 +49,14 @@ import {
   updateDraftPlanContent,
 } from "../db/repositories/plans.js";
 import {
+  findAnnotationByAssistantTurnId,
+  findLatestSessionAnnotation,
+  findNextTranscriptTurn,
+  findTranscriptTurnByClientMessageId,
+  getNextTranscriptSortOrder,
   hasTranscriptTurns,
   insertTranscriptTurn,
+  insertSessionAnnotation,
   listTranscriptForSession,
   lockInterviewSession,
 } from "../db/repositories/public-interviews.js";
@@ -67,6 +77,9 @@ import {
   updateStudyStatus,
 } from "../db/repositories/studies.js";
 import { ApiError } from "./errors.js";
+import {
+  buildFallbackInterviewProgressState,
+} from "./interview-progress.js";
 
 const DEFAULT_ESTIMATED_DURATION = "10 min";
 const DEFAULT_FORMAT_LABEL = "Conversational interview";
@@ -75,7 +88,32 @@ const DEFAULT_INTRO_COPY =
 const DEFAULT_CONSENT_COPY =
   "I understand this is an AI-led research interview and my responses may be analyzed for research purposes.";
 
-const DEFAULT_PARTICIPANT_FIELDS: ParticipantIntakeField[] = [
+type PreparedPublicInterviewChatTurn =
+  | {
+      assistantMetadata: InterviewMessageMetadata;
+      assistantTurn: InterviewMessage;
+      kind: "replay";
+    }
+  | {
+      inviteCode: string;
+      kind: "generate";
+      participantResponses: ParticipantResponses;
+      plan: StudyPlan;
+      progressState: InterviewProgressState;
+      sessionId: string;
+      study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>;
+      topicLabels: string[];
+      transcript: Awaited<ReturnType<typeof listTranscriptForSession>>;
+      userTurn: Awaited<ReturnType<typeof insertTranscriptTurn>>;
+    };
+
+type FinalizedPublicInterviewChatTurn = {
+  annotationCreatedAt: string;
+  assistantMetadata: InterviewMessageMetadata;
+  assistantTurn: InterviewMessage;
+};
+
+const BASE_PARTICIPANT_FIELDS: ParticipantIntakeField[] = [
   {
     id: "preferredName",
     label: "Preferred name",
@@ -109,17 +147,14 @@ const DEFAULT_PARTICIPANT_FIELDS: ParticipantIntakeField[] = [
     required: true,
     type: "select",
   },
-  {
-    id: "usedBudgetingAppRecently",
-    label: "Have you used a budgeting app in the last 6 months?",
-    options: [
-      { label: "Yes", value: "yes" },
-      { label: "No", value: "no" },
-    ],
-    required: true,
-    type: "radio",
-  },
 ];
+
+function resolveParticipantFields(
+  fields: ParticipantIntakeField[],
+): ParticipantIntakeField[] {
+  const legacyFieldIds = new Set(["studyExperience", "usedBudgetingAppRecently"]);
+  return fields.filter((field) => !legacyFieldIds.has(field.id));
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -177,30 +212,6 @@ function normalizeTopics(topics: string[]) {
       seen.add(normalized);
       return true;
     });
-}
-
-function buildInterviewProgressState(
-  topicLabels: string[],
-  answerCount: number,
-): InterviewProgressState {
-  const clampedCount = Math.max(0, answerCount);
-  const coveredCount =
-    clampedCount <= 1 ? 0 : Math.min(clampedCount - 1, topicLabels.length);
-  const activeIndex = coveredCount >= topicLabels.length ? null : coveredCount;
-
-  return {
-    activeTopicLabel:
-      activeIndex === null ? null : topicLabels[activeIndex] ?? null,
-    completionRatio:
-      topicLabels.length === 0
-        ? 0
-        : Math.min(
-            (coveredCount + (activeIndex !== null ? 0.5 : 1)) / topicLabels.length,
-            1,
-          ),
-    coveredTopicLabels: topicLabels.slice(0, coveredCount),
-    remainingTopicLabels: activeIndex === null ? [] : topicLabels.slice(activeIndex + 1),
-  };
 }
 
 function generatePlanFromStudy(
@@ -369,14 +380,19 @@ async function refreshStudyAggregate(db: DatabaseExecutor, studyId: string) {
   });
 }
 
-async function buildStudySummary(db: DatabaseExecutor, study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>): Promise<StudySummary> {
+async function buildStudySummary(
+  db: DatabaseExecutor,
+  appBaseUrl: string,
+  study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>,
+): Promise<StudySummary> {
   await refreshStudyAggregate(db, study.id);
 
-  const [aggregate, approvedPlan, draftPlan, counts] = await Promise.all([
+  const [aggregate, approvedPlan, draftPlan, counts, latestInvite] = await Promise.all([
     findStudyAggregate(db, study.id),
     findCurrentApprovedPlan(db, study.id),
     findCurrentDraftPlan(db, study.id),
     countSessions(db, study.id),
+    findLatestActiveInviteForStudy(db, study.id, nowIso()),
   ]);
   const topics =
     approvedPlan?.topics ??
@@ -390,6 +406,10 @@ async function buildStudySummary(db: DatabaseExecutor, study: NonNullable<Awaite
     description: study.objective,
     status: study.status,
     statusLabel,
+    canStartInterview: Boolean(approvedPlan),
+    latestInviteUrl: latestInvite
+      ? `${appBaseUrl.replace(/\/$/, "")}/interviews/${latestInvite.inviteCode}`
+      : undefined,
     interviewsCompleted: counts.completed,
     interviewsTarget: study.interviewsTarget,
     coverage: aggregate?.coverage ?? 0,
@@ -469,8 +489,8 @@ function mapSessionItem(
     topicsCoveredLabel: `${coveredTopics} / ${totalTopics}`,
     topicsCoveredProgress: progress,
     contradictionsCount: 0,
-    actionLabel: isComplete ? "Debrief Pending" : "Continue",
-    actionTone: isComplete ? "outline" : "primary",
+    actionLabel: isComplete ? "Debrief Pending" : "Participant In Progress",
+    actionTone: "outline",
     debriefAvailable: false,
   };
 }
@@ -552,7 +572,7 @@ async function getInviteRoutePayload(
     formatLabel: DEFAULT_FORMAT_LABEL,
     introCopy: DEFAULT_INTRO_COPY,
     inviteCode: invite.inviteCode,
-    participantFields: await findParticipantFields(db, study.id),
+    participantFields: resolveParticipantFields(await findParticipantFields(db, study.id)),
     sessionStatus,
     studyTitle: study.title,
     topicLabels: approvedPlan.topics,
@@ -565,16 +585,69 @@ async function getTranscript(
 ): Promise<InterviewMessage[]> {
   const rows = await listTranscriptForSession(db, sessionId);
 
-  return rows.map((row) => ({
+  return rows.map(mapTranscriptTurnToMessage);
+}
+
+function normalizeProgressState(
+  topicLabels: string[],
+  progressState: InterviewProgressState,
+): InterviewProgressState {
+  const coveredTopicLabels = topicLabels.filter((label) =>
+    progressState.coveredTopicLabels.includes(label),
+  );
+  const activeTopicLabel =
+    typeof progressState.activeTopicLabel === "string" &&
+    topicLabels.includes(progressState.activeTopicLabel) &&
+    !coveredTopicLabels.includes(progressState.activeTopicLabel)
+      ? progressState.activeTopicLabel
+      : null;
+  const remainingTopicLabels = topicLabels.filter(
+    (label) => !coveredTopicLabels.includes(label) && label !== activeTopicLabel,
+  );
+
+  return {
+    activeTopicLabel,
+    completionRatio: Math.max(0, Math.min(progressState.completionRatio, 1)),
+    coveredTopicLabels,
+    remainingTopicLabels,
+  };
+}
+
+function buildFallbackAnnotationState(
+  topicLabels: string[],
+  transcript: Array<{
+    role: "assistant" | "user";
+    text: string;
+  }>,
+) {
+  return buildFallbackInterviewProgressState(topicLabels, transcript);
+}
+
+function buildAssistantMetadata(
+  progressState: InterviewProgressState,
+  assistantTurn: InterviewMessage,
+): InterviewMessageMetadata {
+  return {
+    assistantTurnId: assistantTurn.id,
+    progressState,
+    timestampLabel: assistantTurn.timestampLabel,
+  };
+}
+
+function mapTranscriptTurnToMessage(
+  row: Awaited<ReturnType<typeof listTranscriptForSession>>[number],
+): InterviewMessage {
+  return {
     id: row.id,
     role: row.role,
     text: row.text,
     timestampLabel: row.timestampLabel,
-  }));
+  };
 }
 
 export async function createStudy(
   db: AppDatabase,
+  appBaseUrl: string,
   input: CreateStudyInput,
 ): Promise<CreateStudyResponse> {
   const topics = normalizeTopics(input.topics);
@@ -613,7 +686,7 @@ export async function createStudy(
 
     await insertParticipantFields(
       tx,
-      DEFAULT_PARTICIPANT_FIELDS.map((field, index) => ({
+      BASE_PARTICIPANT_FIELDS.map((field, index) => ({
         id: createPrefixedId("field"),
         studyId,
         fieldKey: field.id,
@@ -638,13 +711,17 @@ export async function createStudy(
 
   return {
     studyId,
-    study: await buildStudySummary(db, study),
+    study: await buildStudySummary(db, appBaseUrl, study),
   };
 }
 
-export async function listStudies(db: AppDatabase): Promise<StudySummary[]> {
-  const rows = await listStudiesOrdered(db);
-  return Promise.all(rows.map((row) => buildStudySummary(db, row)));
+export async function listStudies(
+  db: AppDatabase,
+  appBaseUrl: string,
+  query: ListStudiesQuery = {},
+): Promise<StudySummary[]> {
+  const rows = await listStudiesOrdered(db, query);
+  return Promise.all(rows.map((row) => buildStudySummary(db, appBaseUrl, row)));
 }
 
 export async function getStudyDetail(
@@ -907,7 +984,7 @@ export async function createStudyInvite(
 
   return {
     inviteCode,
-    inviteUrl: `${appBaseUrl.replace(/\/$/, "")}/interviews/${inviteCode}/welcome`,
+    inviteUrl: `${appBaseUrl.replace(/\/$/, "")}/interviews/${inviteCode}`,
     expiresAt,
     sessionId,
   };
@@ -937,17 +1014,19 @@ export async function getPublicInterviewRouteState(
     };
   }
 
-  const [profile, transcript, invitePayload] = await Promise.all([
+  const [latestAnnotation, profile, transcript, invitePayload] = await Promise.all([
+    findLatestSessionAnnotation(db, session.id),
     findParticipantProfileBySessionId(db, session.id),
     getTranscript(db, session.id),
     getInviteRoutePayload(db, invite, session.sessionStatus),
   ]);
-  const answerCount = transcript.filter((message) => message.role === "user").length;
   const participantResponses = profile?.responses ?? {};
   const sessionState: InterviewSessionState = {
     inviteCode: invite.inviteCode,
     participantResponses,
-    progressState: buildInterviewProgressState(invitePayload.topicLabels, answerCount),
+    progressState: latestAnnotation
+      ? normalizeProgressState(invitePayload.topicLabels, latestAnnotation.progressState)
+      : buildFallbackAnnotationState(invitePayload.topicLabels, transcript),
     sessionStatus: session.sessionStatus,
     transcript,
   };
@@ -956,6 +1035,177 @@ export async function getPublicInterviewRouteState(
     invite: invitePayload,
     kind: "ready",
     session: sessionState,
+  };
+}
+
+export async function preparePublicInterviewChatTurn(
+  db: AppDatabase,
+  inviteCode: string,
+  input: {
+    clientMessageId: string;
+    userText: string;
+  },
+): Promise<PreparedPublicInterviewChatTurn> {
+  const inviteBundle = await findInviteWithSession(db, inviteCode);
+
+  if (!inviteBundle) {
+    throw new ApiError(404, "Interview invite is not available.");
+  }
+
+  const { invite, session } = inviteBundle;
+
+  if (invite.revokedAt !== null || new Date(invite.expiresAt).getTime() <= Date.now()) {
+    throw new ApiError(410, "Interview invite has expired.");
+  }
+
+  return db.transaction(async (tx) => {
+    await lockInterviewSession(tx, session.id);
+
+    const lockedSession = await findSessionById(tx, session.id);
+    const profile = await findParticipantProfileBySessionId(tx, session.id);
+    const study = await findStudyById(tx, invite.studyId);
+    const approvedPlan = await findCurrentApprovedPlan(tx, invite.studyId);
+
+    if (!lockedSession || !profile || !study) {
+      throw new ApiError(500, "Interview session state is missing.");
+    }
+
+    if (lockedSession.sessionStatus !== "room") {
+      throw new ApiError(409, "Interview session is not active.");
+    }
+
+    if (!approvedPlan) {
+      throw new ApiError(409, "Approved plan not found for this interview.");
+    }
+
+    const existingUserTurn = await findTranscriptTurnByClientMessageId(
+      tx,
+      session.id,
+      input.clientMessageId,
+    );
+
+    let userTurn = existingUserTurn;
+
+    if (!userTurn) {
+      const createdAt = nowIso();
+      const nextSortOrder = await getNextTranscriptSortOrder(tx, session.id);
+      userTurn = await insertTranscriptTurn(tx, {
+        clientMessageId: input.clientMessageId,
+        createdAt,
+        finishReason: null,
+        id: createPrefixedId("turn"),
+        model: null,
+        providerResponseId: null,
+        role: "user",
+        sessionId: session.id,
+        sortOrder: nextSortOrder,
+        text: input.userText,
+        timestampLabel: toDisplayTimestamp(createdAt),
+      });
+    }
+
+    const transcript = await listTranscriptForSession(tx, session.id);
+    const latestAnnotation = await findLatestSessionAnnotation(tx, session.id);
+    const nextTurn = await findNextTranscriptTurn(tx, session.id, userTurn.sortOrder);
+    const baseProgressState = latestAnnotation
+      ? normalizeProgressState(approvedPlan.topics, latestAnnotation.progressState)
+      : buildFallbackAnnotationState(approvedPlan.topics, transcript);
+
+    if (nextTurn?.role === "assistant") {
+      const nextAnnotation = await findAnnotationByAssistantTurnId(tx, nextTurn.id);
+      const assistantTurn = mapTranscriptTurnToMessage(nextTurn);
+      const progressState = nextAnnotation
+        ? normalizeProgressState(approvedPlan.topics, nextAnnotation.progressState)
+        : buildFallbackAnnotationState(
+            approvedPlan.topics,
+            transcript.map(mapTranscriptTurnToMessage),
+          );
+
+      return {
+        assistantMetadata: buildAssistantMetadata(progressState, assistantTurn),
+        assistantTurn,
+        kind: "replay",
+      };
+    }
+
+    return {
+      inviteCode: invite.inviteCode,
+      kind: "generate",
+      participantResponses: profile.responses ?? {},
+      plan: approvedPlan,
+      progressState: baseProgressState,
+      sessionId: session.id,
+      study,
+      topicLabels: approvedPlan.topics,
+      transcript,
+      userTurn,
+    };
+  });
+}
+
+export async function finalizePublicInterviewChatTurn(
+  db: AppDatabase,
+  prepared: Extract<PreparedPublicInterviewChatTurn, { kind: "generate" }>,
+  input: {
+    annotation: {
+      contradictions: string[];
+      emotionSignal: "low" | "medium" | "high";
+      evidenceQuotes: string[];
+      progressState: InterviewProgressState;
+    };
+    assistantTurnId: string;
+    finishReason: string;
+    model: string;
+    providerResponseId?: string;
+    text: string;
+  },
+): Promise<FinalizedPublicInterviewChatTurn> {
+  const createdAt = nowIso();
+  const progressState = normalizeProgressState(
+    prepared.topicLabels,
+    input.annotation.progressState,
+  );
+  const assistantTurn: InterviewMessage = {
+    id: input.assistantTurnId,
+    role: "assistant",
+    text: input.text,
+    timestampLabel: toDisplayTimestamp(createdAt),
+  };
+
+  await db.transaction(async (tx) => {
+    await lockInterviewSession(tx, prepared.sessionId);
+
+    await insertTranscriptTurn(tx, {
+      clientMessageId: null,
+      createdAt,
+      finishReason: input.finishReason,
+      id: input.assistantTurnId,
+      model: input.model,
+      providerResponseId: input.providerResponseId ?? null,
+      role: "assistant",
+      sessionId: prepared.sessionId,
+      sortOrder: await getNextTranscriptSortOrder(tx, prepared.sessionId),
+      text: input.text,
+      timestampLabel: assistantTurn.timestampLabel,
+    });
+
+    await insertSessionAnnotation(tx, {
+      assistantTurnId: input.assistantTurnId,
+      contradictions: input.annotation.contradictions,
+      createdAt,
+      emotionSignal: input.annotation.emotionSignal,
+      evidenceQuotes: input.annotation.evidenceQuotes,
+      id: createPrefixedId("annotation"),
+      progressState,
+      sessionId: prepared.sessionId,
+      userTurnId: prepared.userTurn.id,
+    });
+  });
+
+  return {
+    annotationCreatedAt: createdAt,
+    assistantMetadata: buildAssistantMetadata(progressState, assistantTurn),
+    assistantTurn,
   };
 }
 

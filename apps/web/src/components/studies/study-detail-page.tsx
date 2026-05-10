@@ -6,7 +6,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowRight,
   CalendarDays,
   CircleAlert,
   CircleCheck,
@@ -26,11 +25,11 @@ import {
 
 import type {
   StudyActivityItem,
-  StudyDetailModel,
+  StudyDetail as StudyDetailModel,
   StudyMetricCard,
   StudySessionItem,
   StudyTopicCoverageItem,
-} from "@/components/studies/study-detail.mock";
+} from "@motives-ai/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -289,56 +288,35 @@ function SessionSignal({ signal }: { signal: StudySessionItem["emotionalSignal"]
 }
 
 function SessionActionButton({
-  studyId,
   session,
-  onContinue,
 }: {
-  studyId: string;
   session: StudySessionItem;
-  onContinue: () => void;
 }) {
   const className = cn(
     "h-8 rounded-lg px-3 text-[12px] shadow-none whitespace-nowrap",
-    session.actionTone === "primary"
-      ? "bg-primary text-white hover:bg-primary/90"
-      : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
+    "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
   );
 
   if (session.state === "completed") {
-    if (!session.debriefAvailable) {
-      return (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled
-          className={className}
-        >
-          {session.actionLabel}
-        </Button>
-      );
-    }
-
     return (
-      <Link
-        href={`/studies/${studyId}/interviews/${session.id}/debrief`}
-        className={buttonVariants({
-          variant: "outline",
-          size: "sm",
-          className,
-        })}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled
+        className={className}
       >
         {session.actionLabel}
-      </Link>
+      </Button>
     );
   }
 
   return (
     <Button
       type="button"
-      variant={session.actionTone === "primary" ? "default" : "outline"}
+      variant="outline"
       size="sm"
-      onClick={onContinue}
+      disabled
       className={className}
     >
       {session.actionLabel}
@@ -361,10 +339,9 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
         queryClient.invalidateQueries({ queryKey: ["studies"] }),
         queryClient.invalidateQueries({ queryKey: ["study-detail", initialStudy.studyId] }),
       ]);
-      router.push(`/interviews/${invite.inviteCode}/welcome`);
+      router.push(`/interviews/${invite.inviteCode}`);
     },
   });
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const study = studyQuery.data ?? initialStudy;
 
@@ -442,15 +419,6 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
-                className="rounded-xl border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
-              >
-                <FileUp className="size-4" />
-                Export
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
                 size="icon-lg"
                 className="rounded-xl border-zinc-200 bg-white text-zinc-700 shadow-none hover:bg-zinc-50"
                 aria-label="More actions"
@@ -505,46 +473,19 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                   </p>
                 </div>
               </div>
-
-              <div className="border-t border-zinc-200/80 px-6 py-4 sm:px-7">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-primary/85"
-                >
-                  View all insights
-                  <ArrowRight className="size-4" />
-                </button>
-              </div>
             </PageCard>
 
             <PageCard>
               <div className="border-b border-zinc-200/80 px-4 py-4 sm:px-5">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-[0.95rem] leading-6 font-semibold tracking-tight text-zinc-950">
-                    Interview Sessions
-                  </h2>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 text-[12px] font-semibold text-primary transition-colors hover:text-primary/85"
-                  >
-                    View full interviews
-                    <ArrowRight className="size-4" />
-                  </button>
-                </div>
+                <h2 className="text-[0.95rem] leading-6 font-semibold tracking-tight text-zinc-950">
+                  Interview Sessions
+                </h2>
               </div>
 
               <div className="lg:hidden divide-y divide-zinc-200/80">
                 {study.sessions.map((session) => {
-                  const isActive = activeSessionId === session.id;
-
                   return (
-                    <div
-                      key={session.id}
-                      className={cn(
-                        "px-4 py-3.5 transition-colors sm:px-5",
-                        isActive && "bg-primary/[0.03]",
-                      )}
-                    >
+                    <div key={session.id} className="px-4 py-3.5 transition-colors sm:px-5">
                       <div className="space-y-3">
                         <div className="grid content-start gap-1">
                           <p className="text-[12px] leading-4 font-semibold text-zinc-950">
@@ -586,24 +527,7 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <SessionActionButton
-                            studyId={study.studyId}
-                            session={session}
-                            onContinue={() =>
-                              setActiveSessionId((current) =>
-                                current === session.id ? null : session.id,
-                              )
-                            }
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="size-8 rounded-lg border-zinc-200 bg-white text-zinc-600 shadow-none hover:bg-zinc-50"
-                            aria-label={`More actions for ${session.participantLabel}`}
-                          >
-                            <Ellipsis className="size-4" />
-                          </Button>
+                          <SessionActionButton session={session} />
                         </div>
                       </div>
                     </div>
@@ -615,16 +539,8 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                 <table className="w-full border-collapse">
                   <tbody>
                     {study.sessions.map((session) => {
-                      const isActive = activeSessionId === session.id;
-
                       return (
-                        <tr
-                          key={session.id}
-                          className={cn(
-                            "border-t border-zinc-200/80 align-top",
-                            isActive && "bg-primary/[0.03]",
-                          )}
-                        >
+                        <tr key={session.id} className="border-t border-zinc-200/80 align-top">
                           <td className="px-3 py-3.5 sm:px-4">
                             <div className="grid content-start gap-1">
                               <p className="text-[12px] leading-4 font-semibold text-zinc-950">
@@ -667,26 +583,7 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                             </div>
                           </td>
                           <td className="px-3 py-3.5 sm:px-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <SessionActionButton
-                                studyId={study.studyId}
-                                session={session}
-                                onContinue={() =>
-                                  setActiveSessionId((current) =>
-                                    current === session.id ? null : session.id,
-                                  )
-                                }
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-8 rounded-lg border-zinc-200 bg-white text-zinc-600 shadow-none hover:bg-zinc-50"
-                                aria-label={`More actions for ${session.participantLabel}`}
-                              >
-                                <Ellipsis className="size-4" />
-                              </Button>
-                            </div>
+                            <SessionActionButton session={session} />
                           </td>
                         </tr>
                       );
@@ -739,16 +636,6 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                   })}
                 </div>
               </div>
-
-              <div className="border-t border-zinc-200/80 px-5 py-2.5 sm:px-6">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-[13px] font-semibold text-primary transition-colors hover:text-primary/85"
-                >
-                  View full coverage
-                  <ArrowRight className="size-4" />
-                </button>
-              </div>
             </PageCard>
 
             <PageCard>
@@ -794,16 +681,6 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="border-t border-zinc-200/80 px-5 py-2 sm:px-6">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 text-[13px] font-semibold text-primary transition-colors hover:text-primary/85"
-                >
-                  View all activity
-                  <ArrowRight className="size-4" />
-                </button>
               </div>
             </PageCard>
           </div>

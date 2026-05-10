@@ -1,9 +1,7 @@
 import type { StudyPlan } from "@motives-ai/contracts";
 
-export type StudyPlanModel = StudyPlan;
-
 export type EditableStudyPlanFields = Pick<
-  StudyPlanModel,
+  StudyPlan,
   | "topics"
   | "mustCoverAreas"
   | "thingsToAvoid"

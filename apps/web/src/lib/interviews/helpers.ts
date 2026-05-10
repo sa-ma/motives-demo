@@ -58,6 +58,7 @@ export function toInterviewUIMessage(
   return {
     id: message.id,
     metadata: {
+      assistantTurnId: message.role === "assistant" ? message.id : undefined,
       timestampLabel: message.timestampLabel,
     },
     parts: [
@@ -70,4 +71,3 @@ export function toInterviewUIMessage(
     role: message.role,
   };
 }
-

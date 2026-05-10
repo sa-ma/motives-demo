@@ -6,8 +6,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 
+import type {
+  StudyDetail as StudyDetailModel,
+  StudyPlan as StudyPlanModel,
+} from "@motives-ai/contracts";
+
 import { EditTopicsDialog } from "@/components/studies/edit-topics-dialog";
-import type { StudyPlanModel } from "@/components/studies/study-plans.mock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { browserApiClient } from "@/lib/api/client";
@@ -138,14 +142,21 @@ function ExampleProbeCallout({ items }: { items: string[] }) {
 }
 
 export function InterviewPlanPage({
+  initialStudyDetail,
   plan,
   studyId,
 }: {
+  initialStudyDetail: StudyDetailModel;
   plan: StudyPlanModel;
   studyId: string;
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const studyDetailQuery = useQuery({
+    queryKey: ["study-detail", studyId],
+    queryFn: () => browserApiClient.studies.detail(studyId),
+    initialData: initialStudyDetail,
+  });
   const planQuery = useQuery({
     queryKey: ["study-plan", studyId],
     queryFn: () => browserApiClient.plans.get(studyId),
@@ -177,9 +188,22 @@ export function InterviewPlanPage({
       setError(null);
     },
   });
-  const startInterviewMutation = useMutation({
-    mutationFn: async () => {
-      await browserApiClient.plans.approve(studyId);
+  const approvePlanMutation = useMutation({
+    mutationFn: () => browserApiClient.plans.approve(studyId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["studies"] }),
+        queryClient.invalidateQueries({ queryKey: ["study-detail", studyId] }),
+      ]);
+      setError(null);
+    },
+  });
+  const launchInterviewMutation = useMutation({
+    mutationFn: async ({ approveFirst }: { approveFirst: boolean }) => {
+      if (approveFirst) {
+        await browserApiClient.plans.approve(studyId);
+      }
+
       return browserApiClient.invites.create(studyId);
     },
     onSuccess: async (invite) => {
@@ -187,13 +211,17 @@ export function InterviewPlanPage({
         queryClient.invalidateQueries({ queryKey: ["studies"] }),
         queryClient.invalidateQueries({ queryKey: ["study-detail", studyId] }),
       ]);
-      router.push(`/interviews/${invite.inviteCode}/welcome`);
+      router.push(`/interviews/${invite.inviteCode}`);
     },
   });
 
   useEffect(() => {
     setEditablePlan(planQuery.data);
   }, [planQuery.data]);
+
+  const hasApprovedPlan = studyDetailQuery.data?.canStartInterview ?? false;
+  const actionButtonsDisabled =
+    approvePlanMutation.isPending || launchInterviewMutation.isPending;
 
   if (planQuery.isError) {
     return (
@@ -241,7 +269,7 @@ export function InterviewPlanPage({
                   type="button"
                   variant="outline"
                   size="lg"
-                  disabled={regeneratePlanMutation.isPending}
+                  disabled={regeneratePlanMutation.isPending || actionButtonsDisabled}
                   onClick={() => {
                     setError(null);
                     regeneratePlanMutation.mutate(undefined, {
@@ -254,15 +282,6 @@ export function InterviewPlanPage({
                 >
                   <RefreshCcw className="size-4" />
                   {regeneratePlanMutation.isPending ? "Regenerating..." : "Regenerate Plan"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-lg"
-                  className="rounded-xl border-zinc-200 bg-white text-zinc-700 shadow-none hover:bg-zinc-50"
-                  aria-label="More actions"
-                >
-                  <Ellipsis className="size-5" />
                 </Button>
               </div>
             </div>
@@ -308,11 +327,18 @@ export function InterviewPlanPage({
                     {error}
                   </p>
                 ) : null}
+                {hasApprovedPlan ? (
+                  <p className="mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-600">
+                    New interviews use the latest approved plan. Approve the current plan first if
+                    you want these edits applied before launching another session.
+                  </p>
+                ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     type="button"
                     variant="outline"
                     size="lg"
+                    disabled={actionButtonsDisabled}
                     onClick={() => {
                       setEditTopicsSession((current) => current + 1);
                       setIsEditTopicsOpen(true);
@@ -322,23 +348,51 @@ export function InterviewPlanPage({
                     <PenLine className="size-4" />
                     Edit Topics
                   </Button>
+                  {hasApprovedPlan ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      disabled={actionButtonsDisabled}
+                      onClick={() => {
+                        setError(null);
+                        approvePlanMutation.mutate(undefined, {
+                          onError: () => {
+                            setError("We could not approve the current plan.");
+                          },
+                        });
+                      }}
+                      className="h-12 w-full rounded-xl border-zinc-200 bg-white px-6 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50 sm:flex-[1.1]"
+                    >
+                      {approvePlanMutation.isPending ? "Approving..." : "Approve Current Plan"}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="lg"
-                    disabled={startInterviewMutation.isPending}
+                    disabled={actionButtonsDisabled}
                     onClick={() => {
                       setError(null);
-                      startInterviewMutation.mutate(undefined, {
+                      launchInterviewMutation.mutate(
+                        { approveFirst: !hasApprovedPlan },
+                        {
                         onError: () => {
-                          setError("We could not approve the plan and start the interview.");
+                            setError(
+                              hasApprovedPlan
+                                ? "We could not start the interview."
+                                : "We could not approve the plan and start the interview.",
+                            );
+                          },
                         },
-                      });
+                      );
                     }}
                     className="h-12 w-full rounded-xl px-6 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)] hover:bg-primary/90 sm:flex-[1.55]"
                   >
-                    {startInterviewMutation.isPending
+                    {launchInterviewMutation.isPending
                       ? "Starting interview..."
-                      : "Approve & Start Interview"}
+                      : hasApprovedPlan
+                        ? "Start Interview"
+                        : "Approve & Start Interview"}
                   </Button>
                 </div>
               </section>

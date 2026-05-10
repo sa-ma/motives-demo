@@ -12,6 +12,7 @@ export type {
 export type {
   InterviewInvitePayload,
   InterviewMessage,
+  InterviewMessageMetadata,
   InterviewProgressState,
   InterviewSessionState,
   InterviewSessionStatus,
@@ -21,13 +22,20 @@ export type {
   ParticipantResponses,
   PublicInterviewActionInput,
   PublicInterviewActionResponse,
+  PublicInterviewChatEvent,
+  PublicInterviewChatInput,
+  PublicInterviewChatMessage,
   PublicInterviewRouteState,
 } from "./public-interviews.js";
+export { SKIP_QUESTION_MESSAGE } from "./public-interviews.js";
 export type {
   CreateStudyInput,
   CreateStudyResponse,
+  ListStudiesQuery,
   StudyActivityItem,
   StudyDetail,
+  StudyListSort,
+  StudyListStatusFilter,
   StudyMetricCard,
   StudySessionItem,
   StudyStatus,

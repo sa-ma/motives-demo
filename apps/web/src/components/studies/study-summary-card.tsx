@@ -1,10 +1,20 @@
-import Link from "next/link";
-import { Activity, ArrowRight, Ellipsis, Sparkles, UsersRound } from "lucide-react";
+"use client";
 
-import type { StudySummaryCardModel } from "@/components/studies/studies.mock";
+import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Activity, ArrowRight, Copy, Ellipsis, Sparkles, UsersRound } from "lucide-react";
+
+import type { StudySummary as StudySummaryCardModel } from "@motives-ai/contracts";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const accentClasses = {
@@ -54,12 +64,46 @@ const accentClasses = {
   },
 } as const;
 
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
+  const queryClient = useQueryClient();
   const accent = accentClasses[study.accent];
   const primaryActionHref =
     study.accent === "planning"
       ? `/studies/${study.id}/plan`
       : `/studies/${study.id}`;
+  const [actionMessage, setActionMessage] = useState<{
+    text: string;
+    tone: "default" | "error" | "success";
+  } | null>(null);
+
+  useEffect(() => {
+    if (!actionMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setActionMessage(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [actionMessage]);
 
   return (
     <Card className="rounded-3xl border-zinc-200/70 bg-white/95 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)]">
@@ -172,13 +216,23 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[14px] text-zinc-500">{study.updatedLabel}</p>
-
+          <p
+            className={cn(
+              "text-[14px]",
+              actionMessage?.tone === "success"
+                ? "text-emerald-600"
+                : actionMessage?.tone === "error"
+                  ? "text-rose-600"
+                  : "text-zinc-500",
+            )}
+          >
+            {actionMessage?.text ?? study.updatedLabel}
+          </p>
           <div className="flex items-center gap-3">
             {primaryActionHref ? (
               <Link
                 href={primaryActionHref}
-                className={buttonVariants({
+                    className={buttonVariants({
                   variant: accent.buttonVariant,
                   size: "lg",
                   className: cn("rounded-xl px-4 shadow-none", accent.cta),
@@ -200,13 +254,49 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
                 <ArrowRight className="size-4" />
               </button>
             )}
-            <button
-              type="button"
-              className="inline-flex size-10 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 hover:text-zinc-700"
-              aria-label={`More actions for ${study.title}`}
-            >
-              <Ellipsis className="size-5" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`More actions for ${study.title}`}
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "icon-lg",
+                  className:
+                    "rounded-xl border-zinc-200 bg-white text-zinc-500 shadow-none hover:bg-zinc-50 hover:text-zinc-700",
+                })}
+              >
+                <Ellipsis className="size-5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  disabled={!study.latestInviteUrl}
+                  onClick={() => {
+                    if (!study.latestInviteUrl) {
+                      return;
+                    }
+
+                    void copyTextToClipboard(study.latestInviteUrl)
+                      .then(async () => {
+                        setActionMessage({
+                          text: "Invite link copied",
+                          tone: "success",
+                        });
+                        await queryClient.invalidateQueries({ queryKey: ["studies"] });
+                      })
+                      .catch(() => {
+                        setActionMessage({
+                          text: "Could not copy invite link",
+                          tone: "error",
+                        });
+                      });
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <Copy className="size-4 text-zinc-400" />
+                    {study.latestInviteUrl ? "Copy invite link" : "No invite link yet"}
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardContent>

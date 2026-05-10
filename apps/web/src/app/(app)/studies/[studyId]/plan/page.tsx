@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { InterviewPlanPage } from "@/components/studies/interview-plan-page";
-import { getInitialStudyPlan } from "@/lib/api/server";
+import { getInitialStudyDetail, getInitialStudyPlan } from "@/lib/api/server";
 
 export default async function StudyPlanRoute({
   params,
@@ -9,11 +9,20 @@ export default async function StudyPlanRoute({
   params: Promise<{ studyId: string }>;
 }) {
   const { studyId } = await params;
-  const plan = await getInitialStudyPlan(studyId);
+  const [plan, studyDetail] = await Promise.all([
+    getInitialStudyPlan(studyId),
+    getInitialStudyDetail(studyId),
+  ]);
 
-  if (!plan) {
+  if (!plan || !studyDetail) {
     notFound();
   }
 
-  return <InterviewPlanPage plan={plan} studyId={studyId} />;
+  return (
+    <InterviewPlanPage
+      initialStudyDetail={studyDetail}
+      plan={plan}
+      studyId={studyId}
+    />
+  );
 }

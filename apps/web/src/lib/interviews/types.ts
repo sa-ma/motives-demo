@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 export type {
   InterviewInvitePayload,
   InterviewMessage,
+  InterviewMessageMetadata,
   InterviewProgressState,
   InterviewSessionState,
   InterviewSessionStatus,
@@ -15,6 +16,4 @@ export type {
   PublicInterviewRouteState as InterviewRouteState,
 } from "@motives-ai/contracts";
 
-export type InterviewUIMessage = UIMessage<{
-  timestampLabel?: string;
-}>;
+export type InterviewUIMessage = UIMessage<import("@motives-ai/contracts").InterviewMessageMetadata>;

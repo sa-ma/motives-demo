@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { EditableStudyPlanFields } from "@/components/studies/study-plans.mock";
+import type { EditableStudyPlanFields } from "@/components/studies/study-plan.types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

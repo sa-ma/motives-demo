@@ -1,6 +1,10 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
-import type { ParticipantIntakeField, StudyStatus } from "@motives-ai/contracts";
+import type {
+  ListStudiesQuery,
+  ParticipantIntakeField,
+  StudyStatus,
+} from "@motives-ai/contracts";
 
 import type { DatabaseExecutor } from "../client.js";
 import {
@@ -20,9 +24,37 @@ export async function findStudyById(db: DatabaseExecutor, studyId: string) {
   });
 }
 
-export async function listStudiesOrdered(db: DatabaseExecutor) {
+export async function listStudiesOrdered(
+  db: DatabaseExecutor,
+  query: ListStudiesQuery = {},
+) {
+  const conditions = [];
+  const search = query.q?.trim();
+
+  if (query.status === "active") {
+    conditions.push(inArray(study.status, ["interviewing", "analyzing"]));
+  } else if (query.status) {
+    conditions.push(eq(study.status, query.status));
+  }
+
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(study.title, pattern),
+        ilike(study.objective, pattern),
+        ilike(study.audience, pattern),
+        ilike(study.context, pattern),
+      )!,
+    );
+  }
+
   return db.query.study.findMany({
-    orderBy: [desc(study.updatedAt), desc(study.createdAt)],
+    orderBy:
+      query.sort === "updated-asc"
+        ? [asc(study.updatedAt), asc(study.createdAt)]
+        : [desc(study.updatedAt), desc(study.createdAt)],
+    where: conditions.length > 0 ? and(...conditions) : undefined,
   });
 }
 

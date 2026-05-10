@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 
 import type { DatabaseExecutor } from "../client.js";
 import {
@@ -67,6 +67,21 @@ export async function findInviteWithSession(db: DatabaseExecutor, inviteCode: st
     invite,
     session,
   };
+}
+
+export async function findLatestActiveInviteForStudy(
+  db: DatabaseExecutor,
+  studyId: string,
+  now: string,
+) {
+  return db.query.interviewInvite.findFirst({
+    orderBy: [desc(interviewInvite.createdAt)],
+    where: and(
+      eq(interviewInvite.studyId, studyId),
+      isNull(interviewInvite.revokedAt),
+      gt(interviewInvite.expiresAt, now),
+    ),
+  });
 }
 
 export async function findSessionById(db: DatabaseExecutor, sessionId: string) {
