@@ -1,0 +1,177 @@
+apps/web/src/components/studies/study-detail-page.tsx
+  s_f9aca973c271fc::t_2bee5811fefe94 439
+  s_f9aca973c271fc::t_909c588d973c33 3,6,37,308-321,349-366,368-369,428-436,462-467
+packages/contracts/src/invites.ts
+  s_f9aca973c271fc::t_cd4c5fc8f23395 1-15
+packages/contracts/src/studies.ts
+  s_f9aca973c271fc::t_cd4c5fc8f23395 1-157
+packages/contracts/package.json
+  s_f9aca973c271fc::t_f0702e289916ef 6-7,11,15,19,23,27,31
+  s_f9aca973c271fc::t_4b52670527b50e 1-5,8-10,12-14,16-18,20-22,24-26,28-30,32-45
+apps/web/src/app/layout.tsx
+  s_f9aca973c271fc::t_cd12518ea299dd 3-4,27-29
+apps/web/src/app/interviews/[inviteCode]/details/page.tsx
+  s_f9aca973c271fc::t_178c6493d5ca87 6
+apps/api/src/lib/env.ts
+  s_f9aca973c271fc::t_989a9e56b083c3 1-11,13-18
+  s_f9aca973c271fc::t_14b278b1f3afcb 12
+apps/web/src/components/studies/studies-page.tsx
+  s_f9aca973c271fc::t_73ab50470f621b 1-4,8,11-16,22-23,25-30
+  s_f9aca973c271fc::t_2bee5811fefe94 24
+apps/web/src/components/studies/study-detail.mock.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 1-7
+apps/web/src/app/(app)/studies/[studyId]/plan/page.tsx
+  s_f9aca973c271fc::t_4fd0bb1cba5ec9 4,12
+apps/web/package.json
+  s_f9aca973c271fc::t_bba5274ff786be 13-14
+pnpm-workspace.yaml
+  s_f9aca973c271fc::t_bba5274ff786be 3
+apps/web/src/components/interviews/preparing-screen.tsx
+  s_f9aca973c271fc::t_be94c985569044 11,32-36
+  s_f9aca973c271fc::t_2bee5811fefe94 113
+apps/web/src/components/interviews/welcome-screen.tsx
+  s_f9aca973c271fc::t_be94c985569044 9,88-92
+  s_f9aca973c271fc::t_2bee5811fefe94 102
+apps/api/src/db/repositories/studies.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 2-194
+  s_f9aca973c271fc::t_c4c4b636df2ebf 1
+apps/api/src/db/repositories/plans.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 1-57,59-79,81-89,91-139
+  s_f9aca973c271fc::t_df56e028ab948e 58,80,90
+packages/contracts/tsconfig.json
+  s_f9aca973c271fc::t_4b52670527b50e 1-17
+packages/contracts/tsconfig.build.json
+  s_f9aca973c271fc::t_4b52670527b50e 1-8
+apps/web/src/lib/interviews/helpers.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 1-73
+apps/api/src/routes/studies.ts
+  s_f9aca973c271fc::t_4c1c47bfe5267a 43,45-47,79-80,97-98,116-117,135-136,138-141,158-159,177-178
+  s_f9aca973c271fc::t_9064ceb9cfbd77 184
+  s_f9aca973c271fc::t_a5e4ea8f257fde 1-42,48-62,64-78,82-96,100-115,119-134,142-157,161-176,180-183
+  s_f9aca973c271fc::t_aeda9d4eb5de53 44,63,81,99,118,137,160,179
+apps/web/next.config.ts
+  s_f9aca973c271fc::t_bba5274ff786be 4
+apps/web/src/lib/api/client.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 1-6
+apps/web/src/app/providers.tsx
+  s_f9aca973c271fc::t_cd12518ea299dd 1-23
+apps/web/src/app/interviews/[inviteCode]/room/page.tsx
+  s_f9aca973c271fc::t_178c6493d5ca87 5
+apps/web/src/components/interviews/interview-room.tsx
+  s_f9aca973c271fc::t_be94c985569044 25,126-130
+  s_f9aca973c271fc::t_2bee5811fefe94 139,211,247
+  s_f9aca973c271fc::t_178c6493d5ca87 26
+apps/api/src/routes/health.ts
+  s_f9aca973c271fc::t_8d06c88aaae972 20
+apps/api/package.json
+  s_f9aca973c271fc::t_76bde66ace4ea1 12,14,19,21,23-24,28-29
+  s_f9aca973c271fc::t_bba5274ff786be 27
+  s_f9aca973c271fc::t_989a9e56b083c3 11,13
+  s_f9aca973c271fc::t_4b52670527b50e 10
+packages/contracts/src/client.ts
+  s_f9aca973c271fc::t_cd4c5fc8f23395 1-143
+apps/api/src/lib/store.ts
+  s_f9aca973c271fc::t_78f18675a5eaaf 438,485
+  s_f9aca973c271fc::t_2bee5811fefe94 74
+  s_f9aca973c271fc::t_4f1a4e8361fe6e 1,25-68,206-211,257-262,265-266,269,276,279,281,285,308-313,319-320,323,325-326,329-330,336,338-340,351,354,356,361,364-365,369,371-373,375-380,384,394,396,403,405,409,415-420,424-429,442,445-456,461,464-467,478-482,486-496,499-507,510-521,529-531,533-534,540,549-550,554-555,562-566,572,576-579,586,589-599,601,604-607,609-612,614-630,633,641,645-647,650-654,660-670,674,683-684,686,692,694-695,701,710,722,728,732-736,742,751-755,761,763,766-773,775-776,782-783,786-787,793,802-803,805-808,814-818,824,827-831,833,836,838-839,849-850,853-854,860,870,872-880,882-887,889-902,904-905,916-917,919-920,931,935,940-944,946,948,951,962-963,966-967,975,979-980,982-983,985-990,993-998,1005-1020,1024,1028-1038,1041-1054,1059-1065,1071-1073,1076-1077,1085-1086
+  s_f9aca973c271fc::t_a5e4ea8f257fde 2-24,69-73,75-77,79,81-86,88-99,101-112,114-121,123-205,212-256,263-264,267-268,270-275,277-278,280,282-284,286-307,314-318,321-322,324,327-328,331-335,337,341-350,352-353,355,357-360,362-363,366-368,370,374,381-383,385-393,395,397-402,404,406-408,410-414,421-423,430-437,439-441,443-444,457-460,462-463,468-477,483-484,497-498,508-509,522-528,532,535-539,541-548,551-553,556-561,567-571,573-575,580-585,587-588,600,602-603,608,613,631-632,634-640,642-644,648-649,655-659,671-673,675-682,685,687-691,693,696-700,702-709,711-721,723-727,729-731,737-741,743-750,756-760,762,764-765,774,777-781,784-785,788-792,794-801,804,809-813,819-823,825-826,832,834-835,837,840-848,851-852,855-859,861-869,871,881,888,903,906-915,918,921-930,932-934,936-939,945,947,949-950,952-961,964-965,968-974,976-978,981,984,991-992,999-1004,1021-1023,1025-1027,1039-1040,1055-1058,1066-1070,1074-1075,1078-1084,1087-1088
+  s_f9aca973c271fc::t_17b441ce7a7c8c 80,87,100,113
+  s_f9aca973c271fc::t_d3829118a6e194 78,122
+.env.example
+  s_f9aca973c271fc::t_76bde66ace4ea1 1-5
+packages/contracts/src/public-interviews.ts
+  s_f9aca973c271fc::t_cd4c5fc8f23395 1-149
+apps/api/drizzle.config.ts
+  s_f9aca973c271fc::t_989a9e56b083c3 3-15
+  s_f9aca973c271fc::t_a18a45575f2dd8 1-2,16-28
+apps/web/src/app/interviews/[inviteCode]/preparing/page.tsx
+  s_f9aca973c271fc::t_178c6493d5ca87 6
+apps/web/src/components/studies/studies.mock.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 1-4
+apps/web/src/app/(app)/studies/[studyId]/page.tsx
+  s_f9aca973c271fc::t_4fd0bb1cba5ec9 4,12
+apps/api/src/app.test.ts
+  s_f9aca973c271fc::t_24254a5d5271cf 2,4,7-10,18,25-32,227,230,238-328
+  s_f9aca973c271fc::t_151596723dc579 1,3,5-6,11-17,19-24,33-226,228-229,231-237,329-332
+packages/contracts/src/plans.ts
+  s_f9aca973c271fc::t_cd4c5fc8f23395 1-62
+apps/api/src/db/migrate.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 2,5-12
+  s_f9aca973c271fc::t_989a9e56b083c3 1,3-4
+apps/api/src/lib/errors.ts
+  s_f9aca973c271fc::t_a5e4ea8f257fde 1-10
+docker-compose.yml
+  s_f9aca973c271fc::t_76bde66ace4ea1 1-21
+apps/web/src/components/studies/study-form.tsx
+  s_f9aca973c271fc::t_2bee5811fefe94 192,199
+  s_f9aca973c271fc::t_18498ec17fffb2 3,6,14,40-44,46-47,54-72,167-172,176-191,193-195
+apps/api/src/db/client.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 1-22
+apps/web/src/lib/interviews/types.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 3-16
+apps/web/src/components/interviews/participant-details-form.tsx
+  s_f9aca973c271fc::t_be94c985569044 18,78-79,81,83-84
+  s_f9aca973c271fc::t_2bee5811fefe94 245
+apps/web/src/lib/api/server.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 1-61
+apps/api/src/app.ts
+  s_f9aca973c271fc::t_989a9e56b083c3 6,11-12
+  s_f9aca973c271fc::t_ce3bb6724fce1f 62-67
+  s_f9aca973c271fc::t_8d06c88aaae972 16,36-40,75
+  s_f9aca973c271fc::t_0081545361602c 48-49
+  s_f9aca973c271fc::t_efb7bd9d6ba6ed 19-34,61
+  s_f9aca973c271fc::t_a5e4ea8f257fde 4-5,7,9-10,14-15,17-18,35,53-60,68-74,76,78-79
+apps/api/src/routes/public-interviews.ts
+  s_f9aca973c271fc::t_4c1c47bfe5267a 30-31,57-58,60-63
+  s_f9aca973c271fc::t_aeda9d4eb5de53 32,59
+  s_f9aca973c271fc::t_a5e4ea8f257fde 1-29,33-56,64-67
+  s_f9aca973c271fc::t_9064ceb9cfbd77 68
+apps/api/src/plugins/database.ts
+  s_f9aca973c271fc::t_a5e4ea8f257fde 1,3,10-13,17-21,23-25,32-34,39-40,42-43
+  s_f9aca973c271fc::t_8d06c88aaae972 2,4-9,15-16,22,26-31,35-38,41
+  s_f9aca973c271fc::t_1742b1c81a3c1c 14
+apps/api/src/db/repositories/invites.ts
+  s_f9aca973c271fc::t_df56e028ab948e 1,3-4,14
+  s_f9aca973c271fc::t_a18a45575f2dd8 2,5-13,15-107
+apps/api/src/db/repositories/public-interviews.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 1-40
+apps/web/src/app/interviews/[inviteCode]/welcome/page.tsx
+  s_f9aca973c271fc::t_178c6493d5ca87 6
+packages/contracts/src/index.ts
+  s_f9aca973c271fc::t_cd4c5fc8f23395 1-37
+apps/web/src/lib/interviews/session.ts
+  s_f9aca973c271fc::t_4d7187a15621dc 1,3,8-9,13,17-27,34,41-61,63-65,67-71,74-75
+apps/api/src/db/migrations.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 1-41
+apps/api/src/db/schema.ts
+  s_f9aca973c271fc::t_a18a45575f2dd8 1-66,68-187,189-237
+  s_f9aca973c271fc::t_df56e028ab948e 67,188
+apps/api/drizzle/0000_loose_mephistopheles.sql
+  s_f9aca973c271fc::t_7eb8ddd4b22887 1-119
+apps/web/src/app/interviews/[inviteCode]/page.tsx
+  s_f9aca973c271fc::t_178c6493d5ca87 4
+docker/postgres/init/01-create-databases.sh
+  s_f9aca973c271fc::t_76bde66ace4ea1 1-14
+apps/web/src/components/studies/study-plans.mock.ts
+  s_f9aca973c271fc::t_cd12518ea299dd 1,3
+apps/web/src/app/interviews/[inviteCode]/complete/page.tsx
+  s_f9aca973c271fc::t_178c6493d5ca87 6
+package.json
+  s_f9aca973c271fc::t_76bde66ace4ea1 9-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b2f08ef5c76c2309fd72ff174ffb08052f0f5d57",
+  "prompts": {},
+  "sessions": {
+    "s_f9aca973c271fc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e0e5e-a9ec-75d3-81bd-35e39e87717a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
