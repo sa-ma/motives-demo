@@ -84,7 +84,7 @@ type EditTopicsDialogProps = {
   open: boolean;
   plan: EditableStudyPlanFields;
   onOpenChange: (open: boolean) => void;
-  onSave: (plan: EditableStudyPlanFields) => void;
+  onSave: (plan: EditableStudyPlanFields) => Promise<void> | void;
 };
 
 type TopicDraft = {
@@ -331,6 +331,8 @@ export function EditTopicsDialog({
   const [newThingToAvoid, setNewThingToAvoid] = useState("");
   const [isAddingMustCoverArea, setIsAddingMustCoverArea] = useState(false);
   const [isAddingThingToAvoid, setIsAddingThingToAvoid] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function updateChipField(field: DraftField, value: string) {
     const nextValue = value.trim();
@@ -346,11 +348,54 @@ export function EditTopicsDialog({
   }
 
   function closeWithoutSaving() {
+    if (isSaving) {
+      return;
+    }
+
+    setSaveError(null);
     onOpenChange(false);
   }
 
+  function normalizeDraftList(values: string[]) {
+    const seen = new Set<string>();
+
+    return values
+      .map((value) => value.trim())
+      .filter((value) => {
+        if (!value) {
+          return false;
+        }
+
+        const normalized = value.toLowerCase();
+
+        if (seen.has(normalized)) {
+          return false;
+        }
+
+        seen.add(normalized);
+        return true;
+      });
+  }
+
+  function getSaveErrorMessage(error: unknown) {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return "We could not save those plan changes.";
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (isSaving) {
+          return;
+        }
+
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent
         showCloseButton={false}
         className="h-dvh w-screen max-h-dvh max-w-none sm:h-auto sm:w-[min(980px,calc(100vw-32px))] sm:max-h-[min(94vh,900px)]"
@@ -365,7 +410,10 @@ export function EditTopicsDialog({
               </DialogDescription>
             </div>
 
-            <DialogClose className="inline-flex size-9 items-center justify-center rounded-full border border-transparent text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10">
+            <DialogClose
+              disabled={isSaving}
+              className="inline-flex size-9 items-center justify-center rounded-full border border-transparent text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/10 disabled:pointer-events-none disabled:opacity-50"
+            >
               <X className="size-5" />
               <span className="sr-only">Close</span>
             </DialogClose>
@@ -380,6 +428,7 @@ export function EditTopicsDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={isSaving}
                 className="h-7 rounded-md px-2 text-[13px] text-primary hover:bg-primary/5 hover:text-primary"
                 onClick={() =>
                   setTopicDrafts((current) => [
@@ -439,6 +488,7 @@ export function EditTopicsDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={isSaving}
                 className="h-7 rounded-md px-2 text-[13px] text-primary hover:bg-primary/5 hover:text-primary"
                 onClick={() => setIsAddingMustCoverArea(true)}
               >
@@ -492,6 +542,7 @@ export function EditTopicsDialog({
               <Button
                 type="button"
                 variant="ghost"
+                disabled={isSaving}
                 className="h-7 rounded-md px-2 text-[13px] text-primary hover:bg-primary/5 hover:text-primary"
                 onClick={() => setIsAddingThingToAvoid(true)}
               >
@@ -588,10 +639,16 @@ export function EditTopicsDialog({
         </div>
 
         <DialogFooter className="border-t border-zinc-200/80 bg-white px-5 py-4 sm:px-6 sm:py-5">
+          {saveError ? (
+            <p className="w-full rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">
+              {saveError}
+            </p>
+          ) : null}
           <Button
             type="button"
             variant="outline"
             size="lg"
+            disabled={isSaving}
             className="h-10 rounded-xl px-5 text-[14px]"
             onClick={closeWithoutSaving}
           >
@@ -600,16 +657,37 @@ export function EditTopicsDialog({
           <Button
             type="button"
             size="lg"
+            disabled={isSaving}
             className="h-10 rounded-xl px-5 text-[14px] shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)]"
-              onClick={() => {
-              onSave({
-                ...draft,
-                topics: topicDrafts.map((topicDraft) => topicDraft.value),
-              });
-              onOpenChange(false);
-              }}
+            onClick={async () => {
+              const topics = normalizeDraftList(
+                topicDrafts.map((topicDraft) => topicDraft.value),
+              );
+
+              if (topics.length === 0) {
+                setSaveError("Add at least one topic before saving.");
+                return;
+              }
+
+              setSaveError(null);
+              setIsSaving(true);
+
+              try {
+                await onSave({
+                  ...draft,
+                  mustCoverAreas: normalizeDraftList(draft.mustCoverAreas),
+                  thingsToAvoid: normalizeDraftList(draft.thingsToAvoid),
+                  topics,
+                });
+                onOpenChange(false);
+              } catch (error) {
+                setSaveError(getSaveErrorMessage(error));
+              } finally {
+                setIsSaving(false);
+              }
+            }}
           >
-            Save Changes
+            {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

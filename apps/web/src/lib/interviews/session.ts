@@ -1,134 +1,78 @@
-import { cookies } from "next/headers";
+import { createApiClient } from "@motives-ai/contracts/client";
 
-import {
-  buildInitialTranscript,
-  buildInterviewInvitePayload,
-  buildInterviewProgressState,
-  getDefaultInterviewSessionStatus,
-} from "@/lib/interviews/mock";
+import { getInterviewRouteStateFromApi } from "@/lib/api/server";
 import type {
   InterviewRouteState,
   InterviewSessionState,
   InterviewSessionStatus,
+  ParticipantResponses,
+  PublicInterviewActionInput,
 } from "@/lib/interviews/types";
 
-const SESSION_COOKIE_NAME = "motives-interview-session";
-
 type StoredInterviewSession = {
-  participantResponses?: Record<string, boolean | string>;
+  participantResponses?: ParticipantResponses;
   sessionStatus?: InterviewSessionStatus;
 };
 
-type StoredInterviewSessionMap = Record<string, StoredInterviewSession>;
-
-function parseStoredSessions(rawValue: string | undefined) {
-  if (!rawValue) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as StoredInterviewSessionMap;
-
-    if (!parsed || typeof parsed !== "object") {
-      return {};
-    }
-
-    return parsed;
-  } catch {
-    return {};
-  }
-}
-
-async function readStoredSessions() {
-  const cookieStore = await cookies();
-  return parseStoredSessions(cookieStore.get(SESSION_COOKIE_NAME)?.value);
-}
-
-async function writeStoredSessions(nextSessions: StoredInterviewSessionMap) {
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(nextSessions), {
-    httpOnly: true,
-    maxAge: 60 * 60 * 6,
-    path: "/",
-    sameSite: "lax",
+function getServerSideApiClient() {
+  return createApiClient({
+    baseUrl:
+      process.env.API_BASE_URL ??
+      process.env.NEXT_PUBLIC_API_BASE_URL ??
+      "http://localhost:3001",
+    fetch: (input, init) =>
+      fetch(input, {
+        ...init,
+        cache: "no-store",
+      }),
   });
 }
 
 export async function getInterviewRouteState(
   inviteCode: string,
 ): Promise<InterviewRouteState> {
-  const normalizedInviteCode = inviteCode.toUpperCase();
-  const defaultSessionStatus = getDefaultInterviewSessionStatus(normalizedInviteCode);
-
-  if (!defaultSessionStatus) {
-    return {
-      inviteCode: normalizedInviteCode,
-      kind: "invalid",
-    };
-  }
-
-  const storedSessions = await readStoredSessions();
-  const storedSession = storedSessions[normalizedInviteCode];
-  const sessionStatus =
-    storedSession?.sessionStatus ?? defaultSessionStatus;
-  const invite = buildInterviewInvitePayload(normalizedInviteCode, sessionStatus);
-
-  if (!invite) {
-    return {
-      inviteCode: normalizedInviteCode,
-      kind: "invalid",
-    };
-  }
-
-  if (sessionStatus === "expired") {
-    return {
-      invite,
-      kind: "expired",
-    };
-  }
-
-  const transcript = buildInitialTranscript();
-  const answerCount = transcript.filter((message) => message.role === "user").length;
-
-  return {
-    invite,
-    kind: "ready",
-    session: {
-      inviteCode: normalizedInviteCode,
-      participantResponses: storedSession?.participantResponses ?? {},
-      progressState: buildInterviewProgressState(invite.topicLabels, answerCount),
-      sessionStatus,
-      transcript,
-    },
-  };
+  return getInterviewRouteStateFromApi(inviteCode);
 }
 
 export async function updateInterviewSession(
   inviteCode: string,
   patch: StoredInterviewSession,
 ) {
-  const normalizedInviteCode = inviteCode.toUpperCase();
-  const storedSessions = await readStoredSessions();
-  const currentSession = storedSessions[normalizedInviteCode] ?? {};
+  let action: PublicInterviewActionInput["action"] | null = null;
+  let consentAccepted: boolean | undefined;
 
-  storedSessions[normalizedInviteCode] = {
-    participantResponses: {
-      ...(currentSession.participantResponses ?? {}),
-      ...(patch.participantResponses ?? {}),
-    },
-    sessionStatus: patch.sessionStatus ?? currentSession.sessionStatus,
-  };
+  switch (patch.sessionStatus) {
+    case "details":
+      action = "advance-to-details";
+      break;
+    case "preparing":
+      action = "submit-details";
+      consentAccepted = true;
+      break;
+    case "room":
+      action = "start-room";
+      break;
+    case "complete":
+      action = "complete";
+      break;
+    default:
+      action = null;
+      break;
+  }
 
-  await writeStoredSessions(storedSessions);
+  if (!action) {
+    return;
+  }
+
+  await getServerSideApiClient().publicInterviews.act(inviteCode, {
+    action,
+    consentAccepted,
+    participantResponses: patch.participantResponses,
+  });
 }
 
-export async function clearInterviewSession(inviteCode: string) {
-  const normalizedInviteCode = inviteCode.toUpperCase();
-  const storedSessions = await readStoredSessions();
-
-  delete storedSessions[normalizedInviteCode];
-
-  await writeStoredSessions(storedSessions);
+export async function clearInterviewSession(_inviteCode: string) {
+  return;
 }
 
 export function buildSessionResponse(session: InterviewSessionState) {

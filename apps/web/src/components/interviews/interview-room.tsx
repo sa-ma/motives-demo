@@ -22,7 +22,8 @@ import { InterviewPublicShell } from "@/components/interviews/participant-shell"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { buildInterviewProgressState } from "@/lib/interviews/mock";
+import { browserApiClient } from "@/lib/api/client";
+import { buildInterviewProgressState } from "@/lib/interviews/helpers";
 import type {
   InterviewInvitePayload,
   InterviewUIMessage,
@@ -122,18 +123,11 @@ export function InterviewRoom({
                   disabled={isEndingInterview}
                   onClick={() => {
                     startEndingInterview(async () => {
-                      const response = await fetch(
-                        `/api/interviews/${invite.inviteCode}/session`,
-                        {
-                          body: JSON.stringify({ action: "complete" }),
-                          headers: {
-                            "Content-Type": "application/json",
-                          },
-                          method: "POST",
-                        },
-                      );
-
-                      if (!response.ok) {
+                      try {
+                        await browserApiClient.publicInterviews.act(invite.inviteCode, {
+                          action: "complete",
+                        });
+                      } catch {
                         return;
                       }
 
@@ -142,7 +136,7 @@ export function InterviewRoom({
                   }}
                   className="rounded-md border-rose-200 bg-white text-rose-600 shadow-none hover:bg-rose-50 hover:text-rose-700"
                 >
-                  {isEndingInterview ? "Ending…" : "End interview"}
+                  {isEndingInterview ? "Ending..." : "End interview"}
                 </Button>
               </div>
             </div>
@@ -214,7 +208,7 @@ export function InterviewRoom({
                     <MessageContent className="bg-white">
                       <div className="flex items-center gap-2 text-[13px] text-zinc-500">
                         <LoaderCircle className="size-4 animate-spin text-primary" />
-                        <span>Interviewer is responding…</span>
+                        <span>Interviewer is responding...</span>
                       </div>
                     </MessageContent>
                   </Message>
@@ -250,7 +244,7 @@ export function InterviewRoom({
                 <PromptInputTextarea
                   value={input}
                   disabled={status !== "ready"}
-                  placeholder="Type your answer…"
+                  placeholder="Type your answer..."
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {

@@ -1,7 +1,9 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,6 +34,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { browserApiClient } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 const metricToneClasses: Record<StudyMetricCard["tone"], string> = {
@@ -302,6 +305,20 @@ function SessionActionButton({
   );
 
   if (session.state === "completed") {
+    if (!session.debriefAvailable) {
+      return (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled
+          className={className}
+        >
+          {session.actionLabel}
+        </Button>
+      );
+    }
+
     return (
       <Link
         href={`/studies/${studyId}/interviews/${session.id}/debrief`}
@@ -329,8 +346,27 @@ function SessionActionButton({
   );
 }
 
-export function StudyDetailPage({ study }: { study: StudyDetailModel }) {
+export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailModel }) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const studyQuery = useQuery({
+    queryKey: ["study-detail", initialStudy.studyId],
+    queryFn: () => browserApiClient.studies.detail(initialStudy.studyId),
+    initialData: initialStudy,
+  });
+  const startInterviewMutation = useMutation({
+    mutationFn: () => browserApiClient.invites.create(initialStudy.studyId),
+    onSuccess: async (invite) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["studies"] }),
+        queryClient.invalidateQueries({ queryKey: ["study-detail", initialStudy.studyId] }),
+      ]);
+      router.push(`/interviews/${invite.inviteCode}/welcome`);
+    },
+  });
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const study = studyQuery.data ?? initialStudy;
 
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,253,0.98))]">
@@ -389,9 +425,18 @@ export function StudyDetailPage({ study }: { study: StudyDetailModel }) {
               <Button
                 type="button"
                 size="lg"
+                disabled={!study.canStartInterview || startInterviewMutation.isPending}
+                onClick={() => {
+                  setError(null);
+                  startInterviewMutation.mutate(undefined, {
+                    onError: () => {
+                      setError("Approve the plan before creating an interview invite.");
+                    },
+                  });
+                }}
                 className="rounded-xl px-5 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)]"
               >
-                Start Interview
+                {startInterviewMutation.isPending ? "Starting..." : "Start Interview"}
                 <Plus className="size-4" />
               </Button>
               <Button
@@ -414,6 +459,12 @@ export function StudyDetailPage({ study }: { study: StudyDetailModel }) {
               </Button>
             </div>
           </div>
+
+          {error ? (
+            <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">
+              {error}
+            </p>
+          ) : null}
         </section>
 
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">

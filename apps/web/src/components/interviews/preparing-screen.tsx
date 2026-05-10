@@ -8,6 +8,7 @@ import {
   InterviewCardFrame,
 } from "@/components/interviews/participant-shell";
 import { Button } from "@/components/ui/button";
+import { browserApiClient } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 const preparingSteps = [
@@ -28,15 +29,11 @@ export function PreparingScreen({ inviteCode }: { inviteCode: string }) {
       window.setTimeout(() => setActiveStep(2), 1800),
       window.setTimeout(() => {
         startTransition(async () => {
-          const response = await fetch(`/api/interviews/${inviteCode}/session`, {
-            body: JSON.stringify({ action: "start-room" }),
-            headers: {
-              "Content-Type": "application/json",
-            },
-            method: "POST",
-          });
-
-          if (!response.ok) {
+          try {
+            await browserApiClient.publicInterviews.act(inviteCode, {
+              action: "start-room",
+            });
+          } catch {
             setError("We hit a problem while preparing the interview.");
             return;
           }
@@ -113,7 +110,7 @@ export function PreparingScreen({ inviteCode }: { inviteCode: string }) {
             </div>
           ) : (
             <p className="text-center text-[13px] text-zinc-500">
-              {isPending ? "Opening your interview room…" : "Hang tight while we finish setup."}
+              {isPending ? "Opening your interview room..." : "Hang tight while we finish setup."}
             </p>
           )}
         </div>

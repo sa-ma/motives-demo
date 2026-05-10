@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { StudyDetailPage } from "@/components/studies/study-detail-page";
-import { getStudyDetailById } from "@/components/studies/study-detail.mock";
+import { getInitialStudyDetail } from "@/lib/api/server";
 
 export default async function StudyDetailRoute({
   params,
@@ -9,7 +9,7 @@ export default async function StudyDetailRoute({
   params: Promise<{ studyId: string }>;
 }) {
   const { studyId } = await params;
-  const study = getStudyDetailById(studyId);
+  const study = await getInitialStudyDetail(studyId);
 
   if (!study) {
     notFound();

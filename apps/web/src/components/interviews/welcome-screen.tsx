@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { InterviewCardFrame } from "@/components/interviews/participant-shell";
 import { Button } from "@/components/ui/button";
+import { browserApiClient } from "@/lib/api/client";
 import type { InterviewInvitePayload } from "@/lib/interviews/types";
 
 const inviteHighlights = [
@@ -84,15 +85,11 @@ export function WelcomeScreen({ invite }: { invite: InterviewInvitePayload }) {
             onClick={() => {
               setError(null);
               startTransition(async () => {
-                const response = await fetch(`/api/interviews/${invite.inviteCode}/session`, {
-                  body: JSON.stringify({ action: "advance-to-details" }),
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  method: "POST",
-                });
-
-                if (!response.ok) {
+                try {
+                  await browserApiClient.publicInterviews.act(invite.inviteCode, {
+                    action: "advance-to-details",
+                  });
+                } catch {
                   setError("Unable to start the interview right now.");
                   return;
                 }
@@ -102,7 +99,7 @@ export function WelcomeScreen({ invite }: { invite: InterviewInvitePayload }) {
             }}
             className="h-12 w-full rounded-md text-[15px] font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)] sm:h-13"
           >
-            {isPending ? "Starting…" : "Get Started"}
+            {isPending ? "Starting..." : "Get Started"}
           </Button>
         </div>
       </InterviewCardFrame>

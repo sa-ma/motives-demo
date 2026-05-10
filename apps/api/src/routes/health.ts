@@ -17,6 +17,7 @@ const healthRoutesPlugin: FastifyPluginAsync = async (app) => {
       },
     },
     async () => {
+      await app.checkDatabaseHealth();
       return { status: "ok" };
     },
   );

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { browserApiClient } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { InterviewInvitePayload } from "@/lib/interviews/types";
 
@@ -74,18 +75,13 @@ export function ParticipantDetailsForm({
             }
 
             startTransition(async () => {
-              const response = await fetch(`/api/interviews/${invite.inviteCode}/session`, {
-                body: JSON.stringify({
+              try {
+                await browserApiClient.publicInterviews.act(invite.inviteCode, {
                   action: "submit-details",
+                  consentAccepted: true,
                   participantResponses: values,
-                }),
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                method: "POST",
-              });
-
-              if (!response.ok) {
+                });
+              } catch {
                 setError("We could not save your details. Please try again.");
                 return;
               }
@@ -246,7 +242,7 @@ export function ParticipantDetailsForm({
             disabled={isPending}
             className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)]"
           >
-            {isPending ? "Saving…" : "Continue"}
+            {isPending ? "Saving..." : "Continue"}
           </Button>
         </form>
       </InterviewCardFrame>

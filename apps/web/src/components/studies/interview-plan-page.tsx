@@ -1,13 +1,16 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 
 import { EditTopicsDialog } from "@/components/studies/edit-topics-dialog";
 import type { StudyPlanModel } from "@/components/studies/study-plans.mock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { browserApiClient } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 function PlanColumn({
@@ -141,9 +144,74 @@ export function InterviewPlanPage({
   plan: StudyPlanModel;
   studyId: string;
 }) {
-  const [editablePlan, setEditablePlan] = useState(plan);
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const planQuery = useQuery({
+    queryKey: ["study-plan", studyId],
+    queryFn: () => browserApiClient.plans.get(studyId),
+    initialData: plan,
+  });
+  const [editablePlan, setEditablePlan] = useState(planQuery.data);
   const [isEditTopicsOpen, setIsEditTopicsOpen] = useState(false);
   const [editTopicsSession, setEditTopicsSession] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const updatePlanMutation = useMutation({
+    mutationFn: (nextPlan: StudyPlanModel) =>
+      browserApiClient.plans.update(studyId, {
+        mustCoverAreas: nextPlan.mustCoverAreas,
+        selectedBehaviorId: nextPlan.selectedBehaviorId,
+        selectedTone: nextPlan.selectedTone,
+        thingsToAvoid: nextPlan.thingsToAvoid,
+        topics: nextPlan.topics,
+      }),
+    onSuccess: (nextPlan) => {
+      queryClient.setQueryData(["study-plan", studyId], nextPlan);
+      setEditablePlan(nextPlan);
+    },
+  });
+  const regeneratePlanMutation = useMutation({
+    mutationFn: () => browserApiClient.plans.generate(studyId),
+    onSuccess: (nextPlan) => {
+      queryClient.setQueryData(["study-plan", studyId], nextPlan);
+      setEditablePlan(nextPlan);
+      setError(null);
+    },
+  });
+  const startInterviewMutation = useMutation({
+    mutationFn: async () => {
+      await browserApiClient.plans.approve(studyId);
+      return browserApiClient.invites.create(studyId);
+    },
+    onSuccess: async (invite) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["studies"] }),
+        queryClient.invalidateQueries({ queryKey: ["study-detail", studyId] }),
+      ]);
+      router.push(`/interviews/${invite.inviteCode}/welcome`);
+    },
+  });
+
+  useEffect(() => {
+    setEditablePlan(planQuery.data);
+  }, [planQuery.data]);
+
+  if (planQuery.isError) {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))] px-4 py-10">
+        <div className="rounded-3xl border border-rose-100 bg-rose-50 px-6 py-8 text-center text-sm text-rose-700">
+          We couldn't load the interview plan right now.
+        </div>
+      </div>
+    );
+  }
+
+  if (!editablePlan) {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))] px-4 py-10 text-sm text-zinc-500">
+        Loading interview plan...
+      </div>
+    );
+  }
 
   return (
     <>
@@ -173,10 +241,19 @@ export function InterviewPlanPage({
                   type="button"
                   variant="outline"
                   size="lg"
+                  disabled={regeneratePlanMutation.isPending}
+                  onClick={() => {
+                    setError(null);
+                    regeneratePlanMutation.mutate(undefined, {
+                      onError: () => {
+                        setError("We could not regenerate the plan right now.");
+                      },
+                    });
+                  }}
                   className="rounded-xl border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
                 >
                   <RefreshCcw className="size-4" />
-                  Regenerate Plan
+                  {regeneratePlanMutation.isPending ? "Regenerating..." : "Regenerate Plan"}
                 </Button>
                 <Button
                   type="button"
@@ -226,6 +303,11 @@ export function InterviewPlanPage({
               </PlanSection>
               <PlanSeparator />
               <section className="px-6 py-5 sm:px-7 sm:py-6">
+                {error ? (
+                  <p className="mb-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">
+                    {error}
+                  </p>
+                ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     type="button"
@@ -243,9 +325,20 @@ export function InterviewPlanPage({
                   <Button
                     type="button"
                     size="lg"
+                    disabled={startInterviewMutation.isPending}
+                    onClick={() => {
+                      setError(null);
+                      startInterviewMutation.mutate(undefined, {
+                        onError: () => {
+                          setError("We could not approve the plan and start the interview.");
+                        },
+                      });
+                    }}
                     className="h-12 w-full rounded-xl px-6 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)] hover:bg-primary/90 sm:flex-[1.55]"
                   >
-                    Approve &amp; Start Interview
+                    {startInterviewMutation.isPending
+                      ? "Starting interview..."
+                      : "Approve & Start Interview"}
                   </Button>
                 </div>
               </section>
@@ -259,7 +352,18 @@ export function InterviewPlanPage({
         open={isEditTopicsOpen}
         plan={editablePlan}
         onOpenChange={setIsEditTopicsOpen}
-        onSave={(nextPlan) => setEditablePlan((current) => ({ ...current, ...nextPlan }))}
+        onSave={async (nextPlan) => {
+          const mergedPlan = { ...editablePlan, ...nextPlan };
+          setError(null);
+
+          try {
+            await updatePlanMutation.mutateAsync(mergedPlan);
+          } catch {
+            const message = "We could not save those plan changes.";
+            setError(message);
+            throw new Error(message);
+          }
+        }}
       />
     </>
   );

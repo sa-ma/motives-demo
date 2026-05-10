@@ -1,11 +1,17 @@
 .DS_Store
 .turbo
 node_modules
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 apps/*/node_modules
 apps/*/.next
 apps/*/dist
 apps/*/coverage
+packages/*/dist
 
 pnpm-debug.log*
 

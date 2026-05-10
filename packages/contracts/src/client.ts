@@ -1,0 +1,143 @@
+import type {
+  CreateInviteInput,
+  CreateInviteResponse,
+} from "./invites.js";
+import type {
+  ApprovePlanResponse,
+  GeneratePlanInput,
+  StudyPlan,
+  UpdateStudyPlanInput,
+} from "./plans.js";
+import type {
+  PublicInterviewActionInput,
+  PublicInterviewActionResponse,
+  PublicInterviewRouteState,
+} from "./public-interviews.js";
+import type {
+  CreateStudyInput,
+  CreateStudyResponse,
+  StudyDetail,
+  StudySummary,
+} from "./studies.js";
+
+type FetchLike = typeof fetch;
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+type RequestOptions = {
+  body?: unknown;
+  headers?: HeadersInit;
+  method?: string;
+};
+
+export type ApiClient = ReturnType<typeof createApiClient>;
+
+export function createApiClient(options: {
+  baseUrl: string;
+  fetch?: FetchLike;
+}) {
+  const fetchImpl = options.fetch ?? fetch;
+  const baseUrl = options.baseUrl.replace(/\/$/, "");
+
+  async function request<T>(path: string, init: RequestOptions = {}) {
+    const response = await fetchImpl(`${baseUrl}${path}`, {
+      body:
+        init.body === undefined ? undefined : JSON.stringify(init.body),
+      headers: {
+        "Content-Type": "application/json",
+        ...init.headers,
+      },
+      method: init.method ?? "GET",
+    });
+
+    const text = await response.text();
+    const payload = text ? (JSON.parse(text) as unknown) : null;
+
+    if (!response.ok) {
+      const message =
+        typeof payload === "object" &&
+        payload !== null &&
+        "error" in payload &&
+        typeof payload.error === "string"
+          ? payload.error
+          : `Request failed with status ${response.status}`;
+
+      throw new ApiError(message, response.status, payload);
+    }
+
+    return payload as T;
+  }
+
+  return {
+    studies: {
+      create(input: CreateStudyInput) {
+        return request<CreateStudyResponse>("/v1/studies", {
+          body: input,
+          method: "POST",
+        });
+      },
+      list() {
+        return request<StudySummary[]>("/v1/studies");
+      },
+      detail(studyId: string) {
+        return request<StudyDetail>(`/v1/studies/${studyId}`);
+      },
+    },
+    plans: {
+      get(studyId: string) {
+        return request<StudyPlan>(`/v1/studies/${studyId}/plan`);
+      },
+      generate(studyId: string, input: GeneratePlanInput = {}) {
+        return request<StudyPlan>(`/v1/studies/${studyId}/plan/generate`, {
+          body: input,
+          method: "POST",
+        });
+      },
+      update(studyId: string, input: UpdateStudyPlanInput) {
+        return request<StudyPlan>(`/v1/studies/${studyId}/plan`, {
+          body: input,
+          method: "PUT",
+        });
+      },
+      approve(studyId: string) {
+        return request<ApprovePlanResponse>(`/v1/studies/${studyId}/plan/approve`, {
+          body: {},
+          method: "POST",
+        });
+      },
+    },
+    invites: {
+      create(studyId: string, input: CreateInviteInput = {}) {
+        return request<CreateInviteResponse>(`/v1/studies/${studyId}/invites`, {
+          body: input,
+          method: "POST",
+        });
+      },
+    },
+    publicInterviews: {
+      get(inviteCode: string) {
+        return request<PublicInterviewRouteState>(`/v1/public/interviews/${inviteCode}`);
+      },
+      act(inviteCode: string, input: PublicInterviewActionInput) {
+        return request<PublicInterviewActionResponse>(
+          `/v1/public/interviews/${inviteCode}/actions`,
+          {
+            body: input,
+            method: "POST",
+          },
+        );
+      },
+    },
+  };
+}
+

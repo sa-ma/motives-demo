@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { InterviewInviteState } from "@/components/interviews/invite-state";
-import { getInterviewPath } from "@/lib/interviews/mock";
+import { getInterviewPath } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
 
 export default async function InterviewIndexPage({

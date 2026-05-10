@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { InterviewInviteState } from "@/components/interviews/invite-state";
 import { InterviewRoom } from "@/components/interviews/interview-room";
-import { getRedirectPathForStep, toInterviewUIMessage } from "@/lib/interviews/mock";
+import { getRedirectPathForStep, toInterviewUIMessage } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
 
 export default async function InterviewRoomPage({

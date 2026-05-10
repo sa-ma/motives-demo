@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { InterviewInviteState } from "@/components/interviews/invite-state";
 import { ParticipantDetailsForm } from "@/components/interviews/participant-details-form";
 import { InterviewPublicShell } from "@/components/interviews/participant-shell";
-import { getRedirectPathForStep } from "@/lib/interviews/mock";
+import { getRedirectPathForStep } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
 
 export default async function InterviewDetailsPage({

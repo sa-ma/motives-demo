@@ -1,0 +1,45 @@
+{
+  "name": "@motives-ai/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./studies": {
+      "types": "./dist/studies.d.ts",
+      "import": "./dist/studies.js"
+    },
+    "./plans": {
+      "types": "./dist/plans.d.ts",
+      "import": "./dist/plans.js"
+    },
+    "./invites": {
+      "types": "./dist/invites.d.ts",
+      "import": "./dist/invites.js"
+    },
+    "./public-interviews": {
+      "types": "./dist/public-interviews.d.ts",
+      "import": "./dist/public-interviews.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

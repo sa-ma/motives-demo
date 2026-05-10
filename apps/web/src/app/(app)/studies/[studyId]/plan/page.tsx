@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { InterviewPlanPage } from "@/components/studies/interview-plan-page";
-import { getStudyPlanById } from "@/components/studies/study-plans.mock";
+import { getInitialStudyPlan } from "@/lib/api/server";
 
 export default async function StudyPlanRoute({
   params,
@@ -9,7 +9,7 @@ export default async function StudyPlanRoute({
   params: Promise<{ studyId: string }>;
 }) {
   const { studyId } = await params;
-  const plan = getStudyPlanById(studyId);
+  const plan = await getInitialStudyPlan(studyId);
 
   if (!plan) {
     notFound();
