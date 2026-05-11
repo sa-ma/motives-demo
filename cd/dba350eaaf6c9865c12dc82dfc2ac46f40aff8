@@ -1,0 +1,74 @@
+apps/api/src/routes/public-interviews.ts
+  s_733b76aeebd4a9::t_f69016a248bce6 123
+apps/web/src/components/studies/study-form.tsx
+  s_733b76aeebd4a9::t_de57d74c30e49e 13,119
+apps/web/src/app/providers.tsx
+  s_733b76aeebd4a9::t_8a94feaf817f74 6-7,23
+packages/contracts/src/client.ts
+  s_733b76aeebd4a9::t_4d581d39d574b5 83-91
+  s_733b76aeebd4a9::t_6b9c067aebc10a 32,34,39,73-79,93
+apps/web/package.json
+  s_733b76aeebd4a9::t_d237c3ef0a309d 15-16,25
+apps/api/src/routes/studies.ts
+  s_733b76aeebd4a9::t_a9694e0beb9f4f 116
+apps/api/src/app.test.ts
+  s_733b76aeebd4a9::t_f69016a248bce6 356,364,387,739
+apps/api/src/lib/store.ts
+  s_733b76aeebd4a9::t_0e8acccb8a665e 860
+  s_733b76aeebd4a9::t_a9694e0beb9f4f 1126
+  s_733b76aeebd4a9::t_aaaaab2c393d69 277,384,471,496,953,959,1053,1106,1132,1317,1331,1351,1359,1393,1401,1432,1440,1477,1485,1501,1627,1656,1670,1696,1710
+  s_733b76aeebd4a9::t_12b5eb4efa0ac0 55,721,733-736,742,750-755,818,861-862,1154
+  s_733b76aeebd4a9::t_10adafa595cf78 1498-1500,1502-1504
+  s_733b76aeebd4a9::t_f90ded170e90a9 829-840,847,920,934
+apps/web/src/components/studies/study-detail-page.tsx
+  s_733b76aeebd4a9::t_0e8acccb8a665e 799-802
+  s_733b76aeebd4a9::t_c8096aebed3a39 556-557,559-561
+  s_733b76aeebd4a9::t_7269130a781654 723-744
+  s_733b76aeebd4a9::t_80db8eabc7c107 352-374,658-664,666,750-756,758
+  s_733b76aeebd4a9::t_60c50afa66693f 12,36-41,330-351,382-383,387-393,396-398,401-403,428-435,438,670-677,705-706,793-795,797
+  s_733b76aeebd4a9::t_f90ded170e90a9 215-231,555,568
+  s_733b76aeebd4a9::t_3fdfbb7e7b30eb 4,11,23-24,550,552-553,558,562
+  s_733b76aeebd4a9::t_640bcad05723ac 375,384,386,404-427,710,798
+  s_733b76aeebd4a9::t_f4a4704a836929 463,547-549,551,554
+  s_733b76aeebd4a9::t_de57d74c30e49e 477,580
+  s_733b76aeebd4a9::t_8b250955de6257 441,443-446,448-449
+apps/api/src/db/repositories/invites.ts
+  s_733b76aeebd4a9::t_12b5eb4efa0ac0 3,87-103
+apps/api/src/app.ts
+  s_733b76aeebd4a9::t_6b9c067aebc10a 68-92,97-102,105
+packages/contracts/src/studies.ts
+  s_733b76aeebd4a9::t_12b5eb4efa0ac0 104
+apps/web/src/components/studies/edit-topics-dialog.tsx
+  s_733b76aeebd4a9::t_de57d74c30e49e 17,685
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_733b76aeebd4a9::t_de57d74c30e49e 518,614,673
+  s_733b76aeebd4a9::t_8492f5d634103d 9,23-39,400-406,633,637
+  s_733b76aeebd4a9::t_9fac2f0fecfa7b 631-632,634-636
+  s_733b76aeebd4a9::t_f90ded170e90a9 407,639-640,649,651-652
+apps/web/src/components/ui/sonner.tsx
+  s_733b76aeebd4a9::t_8a94feaf817f74 1-7
+apps/web/src/components/studies/study-summary-card.tsx
+  s_733b76aeebd4a9::t_9fac2f0fecfa7b 4,129-130,132-133
+  s_733b76aeebd4a9::t_37d0dddad48dd3 6-7,110,114,122,124-125,131,135,256
+  s_733b76aeebd4a9::t_f4a4704a836929 117-121,123,126-128,136-137,297,299,303,308
+apps/api/src/lib/errors.ts
+  s_733b76aeebd4a9::t_6b9c067aebc10a 3,5,9
+apps/api/src/schemas/http.ts
+  s_733b76aeebd4a9::t_6b9c067aebc10a 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "cddba350eaaf6c9865c12dc82dfc2ac46f40aff8",
+  "prompts": {},
+  "sessions": {
+    "s_733b76aeebd4a9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1677-2f74-7d51-855a-ba0b7bc7d300",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
