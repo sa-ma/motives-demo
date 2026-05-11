@@ -6,6 +6,7 @@ import type {
   ApprovePlanResponse,
   GeneratePlanInput,
   StudyPlan,
+  StudyPlanGenerationResponse,
   UpdateStudyPlanInput,
 } from "./plans.js";
 import type {
@@ -161,11 +162,19 @@ export function createApiClient(options: {
       get(studyId: string) {
         return request<StudyPlan>(`/v1/studies/${studyId}/plan`);
       },
+      status(studyId: string) {
+        return request<StudyPlanGenerationResponse>(
+          `/v1/studies/${studyId}/plan/status`,
+        );
+      },
       generate(studyId: string, input: GeneratePlanInput = {}) {
-        return request<StudyPlan>(`/v1/studies/${studyId}/plan/generate`, {
+        return request<StudyPlanGenerationResponse>(
+          `/v1/studies/${studyId}/plan/generate`,
+          {
           body: input,
           method: "POST",
-        });
+          },
+        );
       },
       update(studyId: string, input: UpdateStudyPlanInput) {
         return request<StudyPlan>(`/v1/studies/${studyId}/plan`, {

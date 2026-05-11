@@ -56,6 +56,7 @@ export const participantFieldTypeEnum = pgEnum("participant_field_type", [
 export const transcriptRoleEnum = pgEnum("transcript_role", ["assistant", "user"]);
 
 export const analysisJobKindEnum = pgEnum("analysis_job_kind", [
+  "plan-generation",
   "session-debrief",
   "study-aggregate",
 ]);
@@ -319,7 +320,7 @@ export const analysisJob = pgTable(
   {
     id: text("id").primaryKey(),
     kind: analysisJobKindEnum("kind")
-      .$type<"session-debrief" | "study-aggregate">()
+      .$type<"plan-generation" | "session-debrief" | "study-aggregate">()
       .notNull(),
     status: analysisJobStatusEnum("status")
       .$type<"queued" | "running" | "completed" | "failed" | "cancelled">()
@@ -339,6 +340,16 @@ export const analysisJob = pgTable(
     updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull(),
   },
   (table) => ({
+    openSessionJobUniqueIdx: uniqueIndex("analysis_job_open_session_unique")
+      .on(table.kind, table.studyId, table.sessionId)
+      .where(
+        sql`${table.status} in ('queued', 'running') and ${table.sessionId} is not null`,
+      ),
+    openStudyJobUniqueIdx: uniqueIndex("analysis_job_open_study_unique")
+      .on(table.kind, table.studyId)
+      .where(
+        sql`${table.status} in ('queued', 'running') and ${table.sessionId} is null`,
+      ),
     statusScheduleIdx: index("idx_analysis_job_status_scheduled").on(
       table.status,
       table.scheduledAt,

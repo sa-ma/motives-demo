@@ -7,6 +7,8 @@ export type {
   GeneratePlanInput,
   InterviewBehaviorId,
   StudyPlan,
+  StudyPlanGenerationResponse,
+  StudyPlanGenerationStatus,
   UpdateStudyPlanInput,
 } from "./plans.js";
 export type {

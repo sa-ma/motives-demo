@@ -36,6 +36,29 @@ export const GeneratePlanInputSchema = Type.Object({}, { additionalProperties: f
 
 export type GeneratePlanInput = Static<typeof GeneratePlanInputSchema>;
 
+export const StudyPlanGenerationStatusSchema = Type.Union([
+  Type.Literal("not-started"),
+  Type.Literal("pending"),
+  Type.Literal("ready"),
+  Type.Literal("failed"),
+]);
+
+export type StudyPlanGenerationStatus = Static<typeof StudyPlanGenerationStatusSchema>;
+
+export const StudyPlanGenerationResponseSchema = Type.Object(
+  {
+    error: Type.Optional(Type.String()),
+    hasPlan: Type.Boolean(),
+    status: StudyPlanGenerationStatusSchema,
+    studyId: Type.String(),
+  },
+  { additionalProperties: false },
+);
+
+export type StudyPlanGenerationResponse = Static<
+  typeof StudyPlanGenerationResponseSchema
+>;
+
 export const UpdateStudyPlanInputSchema = Type.Object(
   {
     topics: Type.Array(Type.String({ minLength: 1, maxLength: 120 }), {

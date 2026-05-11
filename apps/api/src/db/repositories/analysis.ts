@@ -3,6 +3,11 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AppDatabase, DatabaseExecutor } from "../client.js";
 import { analysisJob, debriefReport } from "../schema.js";
 
+export type AnalysisJobKind =
+  | "plan-generation"
+  | "session-debrief"
+  | "study-aggregate";
+
 export async function findDebriefReportBySessionId(
   db: DatabaseExecutor,
   sessionId: string,
@@ -58,7 +63,7 @@ export async function createAnalysisJob(
 export async function findOpenAnalysisJob(
   db: DatabaseExecutor,
   options: {
-    kind: "session-debrief" | "study-aggregate";
+    kind: AnalysisJobKind;
     sessionId?: string;
     studyId: string;
   },
@@ -82,7 +87,7 @@ export async function findOpenAnalysisJob(
 export async function findLatestAnalysisJob(
   db: DatabaseExecutor,
   options: {
-    kind: "session-debrief" | "study-aggregate";
+    kind: AnalysisJobKind;
     sessionId?: string;
     studyId: string;
   },
@@ -105,7 +110,7 @@ export async function findLatestAnalysisJob(
 export async function listLatestAnalysisJobsForSessions(
   db: DatabaseExecutor,
   options: {
-    kind: "session-debrief" | "study-aggregate";
+    kind: AnalysisJobKind;
     sessionIds: string[];
     studyId: string;
   },

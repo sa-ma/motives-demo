@@ -36,6 +36,13 @@
       "when": 1778470800000,
       "tag": "0004_invite_lookup_index",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778544000000,
+      "tag": "0005_plan_generation_job",
+      "breakpoints": true
     }
   ]
 }

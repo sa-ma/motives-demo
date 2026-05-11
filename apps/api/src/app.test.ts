@@ -106,6 +106,8 @@ function createFakeResearchAiService(): ResearchAiService {
             ),
             "Capture the moment interest in the app started to drop.",
             "Capture the final trigger that made continued use feel not worth it.",
+            "Capture what felt missing before the participant disengaged.",
+            "Capture what would have increased confidence or clarity earlier.",
           ].slice(0, 5),
           objective: input.study.objective,
           openingQuestion: `What was your experience using ${input.study.context} from sign-up to the point you stopped using it?`,
@@ -127,6 +129,8 @@ function createFakeResearchAiService(): ResearchAiService {
             ...input.topics,
             "Retention signals",
             "Perceived value",
+            "Decision triggers",
+            "Habit formation",
           ].slice(0, 5),
         },
         providerResponseId: "plan_response_test",
@@ -250,6 +254,43 @@ async function drainAnalysisJobs(app: Awaited<ReturnType<typeof createTestApp>>)
   }
 }
 
+async function ensureDraftPlan(
+  app: Awaited<ReturnType<typeof createTestApp>>,
+  studyId: string,
+  options: { enqueue?: boolean } = {},
+) {
+  if (options.enqueue) {
+    const enqueueResponse = await app.inject({
+      method: "POST",
+      payload: {},
+      url: `/v1/studies/${studyId}/plan/generate`,
+    });
+
+    assert.equal(enqueueResponse.statusCode, 202);
+    assert.deepEqual(
+      parseJson<{ hasPlan: boolean; status: string; studyId: string }>(
+        enqueueResponse.body,
+      ),
+      {
+        hasPlan: false,
+        status: "pending",
+        studyId,
+      },
+    );
+  }
+
+  await drainAnalysisJobs(app);
+
+  const planResponse = await app.inject({
+    method: "GET",
+    url: `/v1/studies/${studyId}/plan`,
+  });
+
+  assert.equal(planResponse.statusCode, 200);
+
+  return parseJson<{ topics: string[] }>(planResponse.body);
+}
+
 async function createReadyInterview(app: Awaited<ReturnType<typeof createTestApp>>) {
   const createStudyResponse = await app.inject({
     method: "POST",
@@ -265,11 +306,7 @@ async function createReadyInterview(app: Awaited<ReturnType<typeof createTestApp
   });
   const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
 
-  await app.inject({
-    method: "POST",
-    payload: {},
-    url: `/v1/studies/${createdStudy.studyId}/plan/generate`,
-  });
+  await ensureDraftPlan(app, createdStudy.studyId);
   await app.inject({
     method: "POST",
     payload: {},
@@ -625,6 +662,10 @@ test("archiving a study hides it from the default list and cancels queued analys
 
     assert.deepEqual(queuedJobsBeforeArchive.rows, [
       {
+        kind: "plan-generation",
+        status: "completed",
+      },
+      {
         kind: "session-debrief",
         status: "queued",
       },
@@ -713,6 +754,10 @@ test("archiving a study hides it from the default list and cancels queued analys
 
     assert.deepEqual(queuedJobsAfterArchive.rows, [
       {
+        kind: "plan-generation",
+        status: "completed",
+      },
+      {
         kind: "session-debrief",
         status: "cancelled",
       },
@@ -774,14 +819,9 @@ test("study, plan, invite, and public session flow persists state", async () => 
 
     assert.equal(createInviteWithoutApproval.statusCode, 409);
 
-    const generatedPlanResponse = await app.inject({
-      method: "POST",
-      payload: {},
-      url: `/v1/studies/${createdStudy.studyId}/plan/generate`,
+    const generatedPlan = await ensureDraftPlan(app, createdStudy.studyId, {
+      enqueue: true,
     });
-
-    assert.equal(generatedPlanResponse.statusCode, 200);
-    const generatedPlan = parseJson<{ topics: string[] }>(generatedPlanResponse.body);
     assert.ok(generatedPlan.topics.length >= 3);
 
     const updatedPlanResponse = await app.inject({
@@ -1078,11 +1118,7 @@ test("concurrent room starts stay idempotent", async () => {
     });
     const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
 
-    await app.inject({
-      method: "POST",
-      payload: {},
-      url: `/v1/studies/${createdStudy.studyId}/plan/generate`,
-    });
+    await ensureDraftPlan(app, createdStudy.studyId);
     await app.inject({
       method: "POST",
       payload: {},
@@ -1224,11 +1260,7 @@ test("ended studies reject plan and invite mutations", async () => {
     });
     const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
 
-    await app.inject({
-      method: "POST",
-      payload: {},
-      url: `/v1/studies/${createdStudy.studyId}/plan/generate`,
-    });
+    await ensureDraftPlan(app, createdStudy.studyId);
     await app.inject({
       method: "POST",
       payload: {},
@@ -1372,11 +1404,7 @@ test("chat validates invite state before streaming", async () => {
     });
     const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
 
-    await app.inject({
-      method: "POST",
-      payload: {},
-      url: `/v1/studies/${createdStudy.studyId}/plan/generate`,
-    });
+    await ensureDraftPlan(app, createdStudy.studyId);
     await app.inject({
       method: "POST",
       payload: {},

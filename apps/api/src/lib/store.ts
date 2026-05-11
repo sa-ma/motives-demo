@@ -22,6 +22,7 @@ import type {
   SessionDebrief,
   SessionDebriefResponse,
   StudyDetail,
+  StudyPlanGenerationResponse,
   StudySessionItem,
   StudyStatus,
   StudySummary,
@@ -226,6 +227,15 @@ function resolveParticipantFields(
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function isUniqueViolationError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505"
+  );
 }
 
 function toDisplayTimestamp(value: string) {
@@ -821,6 +831,54 @@ async function getSessionDebriefResponse(
   });
 }
 
+async function buildStudyPlanGenerationResponse(
+  db: DatabaseExecutor,
+  studyId: string,
+): Promise<StudyPlanGenerationResponse> {
+  const [plan, latestJob, openJob] = await Promise.all([
+    findCurrentPlan(db, studyId),
+    findLatestAnalysisJob(db, {
+      kind: "plan-generation",
+      studyId,
+    }),
+    findOpenAnalysisJob(db, {
+      kind: "plan-generation",
+      studyId,
+    }),
+  ]);
+
+  if (openJob) {
+    return {
+      hasPlan: Boolean(plan),
+      status: "pending",
+      studyId,
+    };
+  }
+
+  if (plan) {
+    return {
+      hasPlan: true,
+      status: "ready",
+      studyId,
+    };
+  }
+
+  if (latestJob?.status === "failed") {
+    return {
+      error: latestJob.error ?? "Plan generation failed.",
+      hasPlan: false,
+      status: "failed",
+      studyId,
+    };
+  }
+
+  return {
+    hasPlan: false,
+    status: "not-started",
+    studyId,
+  };
+}
+
 async function buildSessionItems(
   db: DatabaseExecutor,
   appBaseUrl: string,
@@ -1202,6 +1260,8 @@ export async function createStudy(
       })),
     );
 
+    await enqueueStudyPlanGenerationJob(tx, studyId, createdAt);
+
   });
 
   const study = await findStudyById(db, studyId);
@@ -1427,11 +1487,23 @@ export async function getStudyPlan(
   return plan;
 }
 
-export async function generateStudyPlan(
+export async function getStudyPlanGenerationStatus(
   db: AppDatabase,
   studyId: string,
-  researchAiService: ResearchAiService,
-): Promise<StudyPlan> {
+): Promise<StudyPlanGenerationResponse> {
+  const study = await findStudyById(db, studyId);
+
+  if (!study) {
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
+  }
+
+  return buildStudyPlanGenerationResponse(db, studyId);
+}
+
+export async function requestStudyPlanGeneration(
+  db: AppDatabase,
+  studyId: string,
+): Promise<StudyPlanGenerationResponse> {
   const study = await findStudyById(db, studyId);
 
   if (!study) {
@@ -1439,54 +1511,17 @@ export async function generateStudyPlan(
   }
 
   ensureStudyNotEnded(study, "generate a new plan");
-
-  const topics = await findStudyTopics(db, studyId);
-  const generatedPlan = await researchAiService.generateStudyPlan({
-    study,
-    topics,
-  });
-
-  let validatedPlanOutput: ReturnType<typeof validateGeneratedStudyPlanOutput>;
-
-  try {
-    validatedPlanOutput = validateGeneratedStudyPlanOutput(generatedPlan.output);
-  } catch (error) {
-    if (error instanceof InvalidGeneratedStudyPlanError) {
-      throw new ApiError(
-        502,
-        "We could not generate a reliable interview plan right now.",
-        "STUDY_PLAN_GENERATION_FAILED",
-      );
-    }
-
-    throw error;
-  }
-
-  if (!validatedPlanOutput) {
-    throw new ApiError(502, "We could not generate a reliable interview plan right now.", "STUDY_PLAN_GENERATION_FAILED");
-  }
-
-  const plan = buildStudyPlan(study, {
-    ...validatedPlanOutput,
-    objective: validatedPlanOutput.objective.trim() || study.objective,
-  });
-  const versionNumber = (await getHighestPlanVersion(db, studyId, "draft")) + 1;
-  const updatedAt = nowIso();
+  const scheduledAt = nowIso();
 
   await db.transaction(async (tx) => {
-    await saveDraftPlan(tx, {
-      createdAt: updatedAt,
-      draftPlanId: createPrefixedId("plan"),
-      plan,
-      studyId,
-      versionNumber,
-    });
+    const createdJob = await enqueueStudyPlanGenerationJob(tx, studyId, scheduledAt);
 
-    await touchStudy(tx, studyId, updatedAt);
-    await refreshStudyAggregate(tx, studyId);
+    if (createdJob) {
+      await touchStudy(tx, studyId, scheduledAt);
+    }
   });
 
-  return plan;
+  return buildStudyPlanGenerationResponse(db, studyId);
 }
 
 export async function updateStudyPlan(
@@ -1669,23 +1704,73 @@ async function enqueueSessionDebriefJob(
     return;
   }
 
-  await createAnalysisJob(db, {
-    attemptCount: 0,
-    createdAt: scheduledAt,
-    error: null,
-    id: createPrefixedId("analysis"),
-    kind: "session-debrief",
-    lockedAt: null,
-    payload: {
+  try {
+    await createAnalysisJob(db, {
+      attemptCount: 0,
+      createdAt: scheduledAt,
+      error: null,
+      id: createPrefixedId("analysis"),
+      kind: "session-debrief",
+      lockedAt: null,
+      payload: {
+        sessionId,
+        studyId,
+      },
+      scheduledAt,
       sessionId,
+      status: "queued",
       studyId,
-    },
-    scheduledAt,
-    sessionId,
-    status: "queued",
+      updatedAt: scheduledAt,
+    });
+  } catch (error) {
+    if (isUniqueViolationError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function enqueueStudyPlanGenerationJob(
+  db: DatabaseExecutor,
+  studyId: string,
+  scheduledAt: string,
+) {
+  const existingJob = await findOpenAnalysisJob(db, {
+    kind: "plan-generation",
     studyId,
-    updatedAt: scheduledAt,
   });
+
+  if (existingJob) {
+    return false;
+  }
+
+  try {
+    await createAnalysisJob(db, {
+      attemptCount: 0,
+      createdAt: scheduledAt,
+      error: null,
+      id: createPrefixedId("analysis"),
+      kind: "plan-generation",
+      lockedAt: null,
+      payload: {
+        studyId,
+      },
+      scheduledAt,
+      sessionId: null,
+      status: "queued",
+      studyId,
+      updatedAt: scheduledAt,
+    });
+  } catch (error) {
+    if (isUniqueViolationError(error)) {
+      return false;
+    }
+
+    throw error;
+  }
+
+  return true;
 }
 
 async function enqueueStudyAggregateJob(
@@ -1702,22 +1787,30 @@ async function enqueueStudyAggregateJob(
     return;
   }
 
-  await createAnalysisJob(db, {
-    attemptCount: 0,
-    createdAt: scheduledAt,
-    error: null,
-    id: createPrefixedId("analysis"),
-    kind: "study-aggregate",
-    lockedAt: null,
-    payload: {
+  try {
+    await createAnalysisJob(db, {
+      attemptCount: 0,
+      createdAt: scheduledAt,
+      error: null,
+      id: createPrefixedId("analysis"),
+      kind: "study-aggregate",
+      lockedAt: null,
+      payload: {
+        studyId,
+      },
+      scheduledAt,
+      sessionId: null,
+      status: "queued",
       studyId,
-    },
-    scheduledAt,
-    sessionId: null,
-    status: "queued",
-    studyId,
-    updatedAt: scheduledAt,
-  });
+      updatedAt: scheduledAt,
+    });
+  } catch (error) {
+    if (isUniqueViolationError(error)) {
+      return;
+    }
+
+    throw error;
+  }
 }
 
 export async function getStudySessionDebrief(
@@ -1893,6 +1986,52 @@ export async function processNextAnalysisJob(
           : "Study was ended before this analysis job could run.",
         nowIso(),
       );
+      return true;
+    }
+
+    if (job.kind === "plan-generation") {
+      const topics = await findStudyTopics(db, study.id);
+      const generatedPlan = await researchAiService.generateStudyPlan({
+        study,
+        topics,
+      });
+
+      let validatedPlanOutput: ReturnType<typeof validateGeneratedStudyPlanOutput>;
+
+      try {
+        validatedPlanOutput = validateGeneratedStudyPlanOutput(generatedPlan.output);
+      } catch (error) {
+        if (error instanceof InvalidGeneratedStudyPlanError) {
+          throw new ApiError(
+            502,
+            "We could not generate a reliable interview plan right now.",
+            "STUDY_PLAN_GENERATION_FAILED",
+          );
+        }
+
+        throw error;
+      }
+
+      const plan = buildStudyPlan(study, {
+        ...validatedPlanOutput,
+        objective: validatedPlanOutput.objective.trim() || study.objective,
+      });
+      const versionNumber = (await getHighestPlanVersion(db, study.id, "draft")) + 1;
+      const updatedAt = nowIso();
+
+      await db.transaction(async (tx) => {
+        await saveDraftPlan(tx, {
+          createdAt: updatedAt,
+          draftPlanId: createPrefixedId("plan"),
+          plan,
+          studyId: study.id,
+          versionNumber,
+        });
+        await touchStudy(tx, study.id, updatedAt);
+        await refreshStudyAggregate(tx, study.id);
+        await markAnalysisJobCompleted(tx, job.id, updatedAt);
+      });
+
       return true;
     }
 

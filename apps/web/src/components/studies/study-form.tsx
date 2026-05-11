@@ -80,7 +80,7 @@ export function StudyForm() {
       }),
     onSuccess: (createdStudy) => {
       void queryClient.invalidateQueries({ queryKey: ["studies"] });
-      router.push(`/studies/${createdStudy.studyId}/plan?generate=1`);
+      router.push(`/studies/${createdStudy.studyId}/plan`);
     },
   });
 

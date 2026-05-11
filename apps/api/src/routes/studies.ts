@@ -12,10 +12,12 @@ import {
   ApprovePlanResponseSchema,
   GeneratePlanInputSchema,
   StudyPlanSchema,
+  StudyPlanGenerationResponseSchema,
   UpdateStudyPlanInputSchema,
   type ApprovePlanResponse,
   type GeneratePlanInput,
   type StudyPlan,
+  type StudyPlanGenerationResponse,
   type UpdateStudyPlanInput,
 } from "@motives-ai/contracts/plans";
 import {
@@ -43,11 +45,12 @@ import {
   createStudy,
   createStudyInvite,
   endStudy,
-  generateStudyPlan,
   getStudySessionDebrief,
   getStudyDetail,
   getStudyPlan,
+  getStudyPlanGenerationStatus,
   listStudies,
+  requestStudyPlanGeneration,
   updateStudyPlan,
 } from "../lib/store.js";
 import { commonErrorResponses } from "../schemas/http.js";
@@ -134,21 +137,44 @@ const studiesRoutesPlugin: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.post<{ Body: GeneratePlanInput; Params: StudyIdParams; Reply: StudyPlan }>(
-    "/:studyId/plan/generate",
+  app.get<{ Params: StudyIdParams; Reply: StudyPlanGenerationResponse }>(
+    "/:studyId/plan/status",
     {
       schema: {
         params: StudyIdParamsSchema,
-        body: GeneratePlanInputSchema,
         response: {
-          200: StudyPlanSchema,
+          200: StudyPlanGenerationResponseSchema,
           ...commonErrorResponses,
         },
       },
     },
     async (request) => {
       const { studyId } = request.params;
-      return await generateStudyPlan(app.db, studyId, app.researchAiService);
+      return await getStudyPlanGenerationStatus(app.db, studyId);
+    },
+  );
+
+  app.post<{
+    Body: GeneratePlanInput;
+    Params: StudyIdParams;
+    Reply: StudyPlanGenerationResponse;
+  }>(
+    "/:studyId/plan/generate",
+    {
+      schema: {
+        params: StudyIdParamsSchema,
+        body: GeneratePlanInputSchema,
+        response: {
+          202: StudyPlanGenerationResponseSchema,
+          ...commonErrorResponses,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { studyId } = request.params;
+      const result = await requestStudyPlanGeneration(app.db, studyId);
+      reply.code(202);
+      return result;
     },
   );
 

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@motives-ai/contracts/client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock3, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import type {
   StudyDetail as StudyDetailModel,
   StudyPlan as StudyPlanModel,
+  StudyPlanGenerationResponse,
 } from "@motives-ai/contracts";
 
 import { EditTopicsDialog } from "@/components/studies/edit-topics-dialog";
@@ -19,6 +20,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { browserApiClient } from "@/lib/api/client";
 import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
 import { cn } from "@/lib/utils";
+
+const PLAN_GENERATION_POLL_MS = 2_000;
 
 async function copyTextToClipboard(text: string) {
   if (navigator.clipboard?.writeText) {
@@ -292,19 +295,18 @@ function InitialPlanGenerationState({
 }
 
 export function InterviewPlanPage({
-  autoGenerateOnMount = false,
   initialStudyDetail,
+  initialStudyPlanGenerationStatus,
   plan,
   studyId,
 }: {
-  autoGenerateOnMount?: boolean;
   initialStudyDetail: StudyDetailModel;
+  initialStudyPlanGenerationStatus: StudyPlanGenerationResponse | null;
   plan: StudyPlanModel | null;
   studyId: string;
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const hasStartedInitialGeneration = useRef(false);
   const studyDetailQuery = useQuery({
     queryKey: ["study-detail", studyId],
     queryFn: () => browserApiClient.studies.detail(studyId),
@@ -325,20 +327,32 @@ export function InterviewPlanPage({
       }
     },
     initialData: plan,
+    refetchInterval: (query) => {
+      const status = queryClient.getQueryData<StudyPlanGenerationResponse>([
+        "study-plan-generation",
+        studyId,
+      ]);
+
+      return status?.status === "pending" ? PLAN_GENERATION_POLL_MS : false;
+    },
     staleTime: SERVER_RENDERED_QUERY_STALE_TIME_MS,
+  });
+  const planGenerationStatusQuery = useQuery({
+    queryKey: ["study-plan-generation", studyId],
+    queryFn: () => browserApiClient.plans.status(studyId),
+    initialData: initialStudyPlanGenerationStatus ?? undefined,
+    refetchInterval: (query) =>
+      query.state.data?.status === "pending" ? PLAN_GENERATION_POLL_MS : false,
+    staleTime: 0,
   });
   const [isEditTopicsOpen, setIsEditTopicsOpen] = useState(false);
   const [editTopicsSession, setEditTopicsSession] = useState(0);
-  const [generationMode, setGenerationMode] = useState<"initial" | "regenerate" | null>(
-    autoGenerateOnMount && !plan ? "initial" : null,
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [generationMode, setGenerationMode] = useState<"initial" | "regenerate" | null>(null);
   const editablePlan = planQuery.data ?? null;
-  const setGeneratedPlan = (nextPlan: StudyPlanModel) => {
-    queryClient.setQueryData(["study-plan", studyId], nextPlan);
-    setError(null);
-    setGenerationMode(null);
-  };
+  const planGenerationStatus = planGenerationStatusQuery.data ?? null;
+  const generationPending = planGenerationStatus?.status === "pending";
+  const generationError =
+    planGenerationStatus?.status === "failed" ? planGenerationStatus.error ?? null : null;
   const updatePlanMutation = useMutation({
     mutationFn: (nextPlan: StudyPlanModel) =>
       browserApiClient.plans.update(studyId, {
@@ -354,21 +368,30 @@ export function InterviewPlanPage({
   });
   const initialPlanGenerationMutation = useMutation({
     mutationFn: () => browserApiClient.plans.generate(studyId),
-    onSuccess: (nextPlan) => {
-      setGeneratedPlan(nextPlan);
-      router.replace(`/studies/${studyId}/plan`);
+    onSuccess: (nextState) => {
+      queryClient.setQueryData(["study-plan-generation", studyId], nextState);
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["study-plan", studyId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["study-plan-generation", studyId],
+        }),
+      ]);
+      setGenerationMode("initial");
     },
     onError: () => {
       setGenerationMode(null);
-      setError(
-        "We couldn't generate the plan right now. Your study was created, but no draft was saved.",
-      );
     },
   });
   const regeneratePlanMutation = useMutation({
     mutationFn: () => browserApiClient.plans.generate(studyId),
-    onSuccess: (nextPlan) => {
-      setGeneratedPlan(nextPlan);
+    onSuccess: (nextState) => {
+      queryClient.setQueryData(["study-plan-generation", studyId], nextState);
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["study-plan", studyId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["study-plan-generation", studyId],
+        }),
+      ]);
     },
     onError: () => {
       setGenerationMode(null);
@@ -381,7 +404,6 @@ export function InterviewPlanPage({
         queryClient.invalidateQueries({ queryKey: ["studies"] }),
         queryClient.invalidateQueries({ queryKey: ["study-detail", studyId] }),
       ]);
-      setError(null);
     },
   });
   const launchInterviewMutation = useMutation({
@@ -408,26 +430,6 @@ export function InterviewPlanPage({
     },
   });
 
-  useEffect(() => {
-    if (
-      !autoGenerateOnMount ||
-      hasStartedInitialGeneration.current ||
-      editablePlan ||
-      initialPlanGenerationMutation.isPending
-    ) {
-      return;
-    }
-
-    hasStartedInitialGeneration.current = true;
-    initialPlanGenerationMutation.mutate();
-  }, [
-    autoGenerateOnMount,
-    editablePlan,
-    initialPlanGenerationMutation,
-    router,
-    studyId,
-  ]);
-
   const hasApprovedPlan = studyDetailQuery.data?.hasApprovedPlan ?? false;
   const canApprovePlan = studyDetailQuery.data?.canApprovePlan ?? true;
   const canEditPlan = studyDetailQuery.data?.canEditPlan ?? true;
@@ -436,8 +438,12 @@ export function InterviewPlanPage({
   const canApproveBeforeStart = !hasApprovedPlan && canApprovePlan;
   const canLaunchInterview = canStartInterview || canApproveBeforeStart;
   const studyEnded = studyDetailQuery.data?.status === "completed";
-  const initialPlanGenerationPending = initialPlanGenerationMutation.isPending;
-  const regenerationPending = regeneratePlanMutation.isPending;
+  const initialPlanGenerationPending =
+    initialPlanGenerationMutation.isPending ||
+    (generationPending && (!editablePlan || generationMode === "initial"));
+  const regenerationPending =
+    regeneratePlanMutation.isPending ||
+    (generationPending && editablePlan !== null);
   const estimatedDurationLabel =
     editablePlan?.estimatedDurationLabel ??
     studyDetailQuery.data?.metadata.interviewDurationLabel ??
@@ -445,7 +451,8 @@ export function InterviewPlanPage({
   const actionButtonsDisabled =
     approvePlanMutation.isPending ||
     launchInterviewMutation.isPending ||
-    regenerationPending;
+    regenerationPending ||
+    generationPending;
 
   if (planQuery.isError) {
     return (
@@ -461,11 +468,10 @@ export function InterviewPlanPage({
     return (
       <InitialPlanGenerationState
         canRetry={!initialPlanGenerationPending && canRegeneratePlan}
-        error={error}
+        error={generationError}
         isGenerating={initialPlanGenerationPending || generationMode === "initial"}
         onRetry={() => {
           setGenerationMode("initial");
-          setError(null);
           initialPlanGenerationMutation.mutate();
         }}
         studyId={studyId}

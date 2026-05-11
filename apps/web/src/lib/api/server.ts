@@ -5,6 +5,7 @@ import type {
   SessionDebriefResponse,
   StudyDetail,
   StudyPlan,
+  StudyPlanGenerationResponse,
   StudySummary,
 } from "@motives-ai/contracts";
 
@@ -44,6 +45,20 @@ export async function getInitialStudies(
 export async function getInitialStudyPlan(studyId: string): Promise<StudyPlan | null> {
   try {
     return await getServerApiClient().plans.get(studyId);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export async function getInitialStudyPlanGenerationStatus(
+  studyId: string,
+): Promise<StudyPlanGenerationResponse | null> {
+  try {
+    return await getServerApiClient().plans.status(studyId);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return null;

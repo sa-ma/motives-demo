@@ -1,19 +1,21 @@
 import { notFound } from "next/navigation";
 
 import { InterviewPlanPage } from "@/components/studies/interview-plan-page";
-import { getInitialStudyDetail, getInitialStudyPlan } from "@/lib/api/server";
+import {
+  getInitialStudyDetail,
+  getInitialStudyPlan,
+  getInitialStudyPlanGenerationStatus,
+} from "@/lib/api/server";
 
 export default async function StudyPlanRoute({
   params,
-  searchParams,
 }: {
   params: Promise<{ studyId: string }>;
-  searchParams: Promise<{ generate?: string }>;
 }) {
   const { studyId } = await params;
-  const { generate } = await searchParams;
-  const [plan, studyDetail] = await Promise.all([
+  const [plan, planGenerationStatus, studyDetail] = await Promise.all([
     getInitialStudyPlan(studyId),
+    getInitialStudyPlanGenerationStatus(studyId),
     getInitialStudyDetail(studyId),
   ]);
 
@@ -23,8 +25,8 @@ export default async function StudyPlanRoute({
 
   return (
     <InterviewPlanPage
-      autoGenerateOnMount={generate === "1" && !plan}
       initialStudyDetail={studyDetail}
+      initialStudyPlanGenerationStatus={planGenerationStatus}
       plan={plan}
       studyId={studyId}
     />
