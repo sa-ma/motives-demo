@@ -1,0 +1,29 @@
+package.json
+  s_733b76aeebd4a9::t_594a08af6f61a4 9
+apps/api/src/demo/demo-studies.ts
+  s_733b76aeebd4a9::t_804b3a4040ee01 36,48,136
+  s_733b76aeebd4a9::t_594a08af6f61a4 1-35,37-47,49-135,137-1535
+apps/api/src/demo/demo-studies.test.ts
+  s_733b76aeebd4a9::t_594a08af6f61a4 1-21,24-36
+  s_733b76aeebd4a9::t_804b3a4040ee01 22-23
+apps/api/package.json
+  s_733b76aeebd4a9::t_594a08af6f61a4 12
+apps/api/src/scripts/seed-demo-studies.ts
+  s_733b76aeebd4a9::t_594a08af6f61a4 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "7fee38f9b16d1360784d884d7789f91a983a5379",
+  "prompts": {},
+  "sessions": {
+    "s_733b76aeebd4a9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1677-2f74-7d51-855a-ba0b7bc7d300",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
