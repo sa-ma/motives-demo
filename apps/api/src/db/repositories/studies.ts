@@ -70,6 +70,24 @@ export async function findStudyTopics(db: DatabaseExecutor, studyId: string) {
   return rows.map((row) => row.label);
 }
 
+export async function listStudyTopicsByStudyIds(
+  db: DatabaseExecutor,
+  studyIds: string[],
+) {
+  if (studyIds.length === 0) {
+    return [];
+  }
+
+  return db
+    .select({
+      label: studyTopic.label,
+      studyId: studyTopic.studyId,
+    })
+    .from(studyTopic)
+    .where(inArray(studyTopic.studyId, studyIds))
+    .orderBy(asc(studyTopic.studyId), asc(studyTopic.sortOrder));
+}
+
 export async function findParticipantFields(
   db: DatabaseExecutor,
   studyId: string,
@@ -94,6 +112,19 @@ export async function findParticipantFields(
 export async function findStudyAggregate(db: DatabaseExecutor, studyId: string) {
   return db.query.studyAggregate.findFirst({
     where: eq(studyAggregate.studyId, studyId),
+  });
+}
+
+export async function listStudyAggregatesByStudyIds(
+  db: DatabaseExecutor,
+  studyIds: string[],
+) {
+  if (studyIds.length === 0) {
+    return [];
+  }
+
+  return db.query.studyAggregate.findMany({
+    where: inArray(studyAggregate.studyId, studyIds),
   });
 }
 
@@ -181,6 +212,33 @@ export async function countSessions(db: DatabaseExecutor, studyId: string) {
     completed: row?.completed ?? 0,
     live: row?.live ?? 0,
   };
+}
+
+export async function countSessionsByStudyIds(
+  db: DatabaseExecutor,
+  studyIds: string[],
+) {
+  if (studyIds.length === 0) {
+    return [];
+  }
+
+  return db
+    .select({
+      active: sql<number>`
+        coalesce(sum(case when ${interviewSession.sessionStatus} in ('welcome', 'details', 'preparing', 'room') then 1 else 0 end), 0)
+      `.mapWith(Number),
+      completed: sql<number>`
+        coalesce(sum(case when ${interviewSession.sessionStatus} = 'complete' then 1 else 0 end), 0)
+      `.mapWith(Number),
+      live: sql<number>`
+        coalesce(sum(case when ${interviewSession.sessionStatus} = 'room' then 1 else 0 end), 0)
+      `.mapWith(Number),
+      studyId: interviewSession.studyId,
+      total: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(interviewSession)
+    .where(inArray(interviewSession.studyId, studyIds))
+    .groupBy(interviewSession.studyId);
 }
 
 export async function touchStudy(

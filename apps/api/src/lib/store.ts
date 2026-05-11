@@ -51,8 +51,8 @@ import {
   createInterviewSession,
   createInviteCode,
   createParticipantProfile,
-  findLatestActiveInviteForStudy,
   listLatestActiveInvitesForSessions,
+  listLatestActiveInvitesForStudies,
   findInviteWithSession,
   findParticipantProfileBySessionId,
   findSessionById,
@@ -65,6 +65,7 @@ import {
   findCurrentPlan,
   findCurrentPlanVersion,
   getHighestPlanVersion,
+  listCurrentPlanVersionsByStudyIds,
   replaceCurrentApprovedPlan,
   saveDraftPlan,
   updateDraftPlanContent,
@@ -86,6 +87,7 @@ import {
 } from "../db/repositories/public-interviews.js";
 import {
   countSessions,
+  countSessionsByStudyIds,
   createUniqueStudyId,
   findParticipantFields,
   findStudyAggregate,
@@ -94,6 +96,8 @@ import {
   insertParticipantFields,
   insertStudy,
   insertStudyTopics,
+  listStudyAggregatesByStudyIds,
+  listStudyTopicsByStudyIds,
   listSessionsForStudy,
   listStudiesOrdered,
   touchStudy,
@@ -163,6 +167,18 @@ type FinalizedPublicInterviewChatTurn = {
   annotationCreatedAt: string;
   assistantMetadata: InterviewMessageMetadata;
   assistantTurn: InterviewMessage;
+};
+
+type StudySummaryContext = {
+  aggregateByStudyId: Map<string, Awaited<ReturnType<typeof findStudyAggregate>>>;
+  approvedPlanByStudyId: Map<string, StudyPlan>;
+  countsByStudyId: Map<string, Awaited<ReturnType<typeof countSessions>>>;
+  draftPlanByStudyId: Map<string, StudyPlan>;
+  latestInviteByStudyId: Map<
+    string,
+    Awaited<ReturnType<typeof listLatestActiveInvitesForStudies>>[number]
+  >;
+  topicsByStudyId: Map<string, string[]>;
 };
 
 const BASE_PARTICIPANT_FIELDS: ParticipantIntakeField[] = [
@@ -572,22 +588,26 @@ async function refreshStudyAggregate(db: DatabaseExecutor, studyId: string) {
   });
 }
 
-async function buildStudySummary(
-  db: DatabaseExecutor,
+function buildStudySummary(
   appBaseUrl: string,
   study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>,
-): Promise<StudySummary> {
-  const [aggregate, approvedPlan, draftPlan, counts, latestInvite] = await Promise.all([
-    findStudyAggregate(db, study.id),
-    findCurrentApprovedPlan(db, study.id),
-    findCurrentDraftPlan(db, study.id),
-    countSessions(db, study.id),
-    findLatestActiveInviteForStudy(db, study.id, nowIso()),
-  ]);
+  context: StudySummaryContext,
+): StudySummary {
+  const aggregate = context.aggregateByStudyId.get(study.id);
+  const approvedPlan = context.approvedPlanByStudyId.get(study.id);
+  const draftPlan = context.draftPlanByStudyId.get(study.id);
+  const counts = context.countsByStudyId.get(study.id) ?? {
+    active: 0,
+    completed: 0,
+    live: 0,
+    total: 0,
+  };
+  const latestInvite = context.latestInviteByStudyId.get(study.id);
   const topics =
     approvedPlan?.topics ??
     draftPlan?.topics ??
-    (await findStudyTopics(db, study.id));
+    context.topicsByStudyId.get(study.id) ??
+    [];
   const hasAggregateAnalysis = (aggregate?.completedSessionCount ?? 0) > 0;
   const awaitingAnalysis = counts.completed > 0 && !hasAggregateAnalysis;
   const statusLabel = study.status === "archived" ? "Archived" : toTitleCase(study.status);
@@ -643,6 +663,91 @@ async function buildStudySummary(
           ? "View Study"
           : "Continue Study",
     accent: study.status,
+  };
+}
+
+async function loadStudySummaryContext(
+  db: DatabaseExecutor,
+  studies: Array<NonNullable<Awaited<ReturnType<typeof findStudyById>>>>,
+): Promise<StudySummaryContext> {
+  const studyIds = studies.map((study) => study.id);
+  const currentTime = nowIso();
+  const [aggregates, countRows, latestInvites, planRows] = await Promise.all([
+    listStudyAggregatesByStudyIds(db, studyIds),
+    countSessionsByStudyIds(db, studyIds),
+    listLatestActiveInvitesForStudies(db, {
+      now: currentTime,
+      studyIds,
+    }),
+    listCurrentPlanVersionsByStudyIds(db, studyIds),
+  ]);
+
+  const aggregateByStudyId = new Map(
+    aggregates.map((aggregate) => [aggregate.studyId, aggregate]),
+  );
+  const approvedPlanByStudyId = new Map<string, StudyPlan>();
+  const countsByStudyId = new Map(
+    countRows.map((counts) => [
+      counts.studyId,
+      {
+        active: counts.active,
+        completed: counts.completed,
+        live: counts.live,
+        total: counts.total,
+      },
+    ]),
+  );
+  const draftPlanByStudyId = new Map<string, StudyPlan>();
+  const latestInviteByStudyId = new Map<
+    string,
+    (typeof latestInvites)[number]
+  >();
+
+  for (const planRow of planRows) {
+    const plan = hydrateStudyPlanDerivedFields(planRow.content);
+
+    if (planRow.kind === "approved") {
+      approvedPlanByStudyId.set(planRow.studyId, plan);
+      continue;
+    }
+
+    draftPlanByStudyId.set(planRow.studyId, plan);
+  }
+
+  for (const invite of latestInvites) {
+    if (!latestInviteByStudyId.has(invite.studyId)) {
+      latestInviteByStudyId.set(invite.studyId, invite);
+    }
+  }
+
+  const topicFallbackStudyIds = studies
+    .filter(
+      (study) =>
+        !approvedPlanByStudyId.has(study.id) &&
+        !draftPlanByStudyId.has(study.id),
+    )
+    .map((study) => study.id);
+  const topicRows = await listStudyTopicsByStudyIds(db, topicFallbackStudyIds);
+  const topicsByStudyId = new Map<string, string[]>();
+
+  for (const row of topicRows) {
+    const topics = topicsByStudyId.get(row.studyId);
+
+    if (topics) {
+      topics.push(row.label);
+      continue;
+    }
+
+    topicsByStudyId.set(row.studyId, [row.label]);
+  }
+
+  return {
+    aggregateByStudyId,
+    approvedPlanByStudyId,
+    countsByStudyId,
+    draftPlanByStudyId,
+    latestInviteByStudyId,
+    topicsByStudyId,
   };
 }
 
@@ -1106,9 +1211,11 @@ export async function createStudy(
     throw new ApiError(500, "Failed to create study.", "STUDY_CREATE_FAILED");
   }
 
+  const summaryContext = await loadStudySummaryContext(db, [study]);
+
   return {
     studyId,
-    study: await buildStudySummary(db, appBaseUrl, study),
+    study: buildStudySummary(appBaseUrl, study, summaryContext),
   };
 }
 
@@ -1118,7 +1225,8 @@ export async function listStudies(
   query: ListStudiesQuery = {},
 ): Promise<StudySummary[]> {
   const rows = await listStudiesOrdered(db, query);
-  return Promise.all(rows.map((row) => buildStudySummary(db, appBaseUrl, row)));
+  const summaryContext = await loadStudySummaryContext(db, rows);
+  return rows.map((row) => buildStudySummary(appBaseUrl, row, summaryContext));
 }
 
 export async function getStudyDetail(

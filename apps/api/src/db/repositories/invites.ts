@@ -84,6 +84,27 @@ export async function findLatestActiveInviteForStudy(
   });
 }
 
+export async function listLatestActiveInvitesForStudies(
+  db: DatabaseExecutor,
+  options: {
+    now: string;
+    studyIds: string[];
+  },
+) {
+  if (options.studyIds.length === 0) {
+    return [];
+  }
+
+  return db.query.interviewInvite.findMany({
+    orderBy: [asc(interviewInvite.studyId), desc(interviewInvite.createdAt)],
+    where: and(
+      inArray(interviewInvite.studyId, options.studyIds),
+      isNull(interviewInvite.revokedAt),
+      gt(interviewInvite.expiresAt, options.now),
+    ),
+  });
+}
+
 export async function listLatestActiveInvitesForSessions(
   db: DatabaseExecutor,
   options: {

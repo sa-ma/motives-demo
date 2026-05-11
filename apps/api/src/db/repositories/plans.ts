@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import type { StudyPlan } from "@motives-ai/contracts";
 
@@ -18,6 +18,27 @@ export async function findCurrentPlanVersion(
       eq(studyPlanVersion.isCurrent, true),
     ),
     orderBy: [desc(studyPlanVersion.versionNumber)],
+  });
+}
+
+export async function listCurrentPlanVersionsByStudyIds(
+  db: DatabaseExecutor,
+  studyIds: string[],
+) {
+  if (studyIds.length === 0) {
+    return [];
+  }
+
+  return db.query.studyPlanVersion.findMany({
+    where: and(
+      inArray(studyPlanVersion.studyId, studyIds),
+      eq(studyPlanVersion.isCurrent, true),
+    ),
+    orderBy: [
+      asc(studyPlanVersion.studyId),
+      asc(studyPlanVersion.kind),
+      desc(studyPlanVersion.versionNumber),
+    ],
   });
 }
 
