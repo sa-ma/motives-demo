@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
+    "seed:demo": "tsx src/scripts/seed-demo-studies.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/*.test.ts src/**/*.test.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
