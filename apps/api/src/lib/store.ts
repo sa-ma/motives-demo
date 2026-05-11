@@ -1202,7 +1202,6 @@ export async function createStudy(
       })),
     );
 
-    await refreshStudyAggregate(tx, studyId);
   });
 
   const study = await findStudyById(db, studyId);
