@@ -1,0 +1,221 @@
+apps/api/src/db/repositories/plans.ts
+  s_fb54cef8df01b1::t_2f6e4a644d5492 7,26,31
+apps/web/src/app/(app)/studies/[studyId]/plan/page.tsx
+  s_fb54cef8df01b1::t_fd73981c78783f 8,11,14,20,26
+apps/api/src/db/migrations.ts
+  s_fb54cef8df01b1::t_327d7a8998ae16 27-28
+packages/contracts/src/plans.ts
+  s_fb54cef8df01b1::t_0f7937bc325656 17-20
+apps/web/src/components/studies/study-form.tsx
+  s_fb54cef8df01b1::t_662b858fc8059b 48-49,56-59,209
+  s_fb54cef8df01b1::t_fc78b3df51216a 45,53,146-159,161-163,189-196
+apps/api/src/ai/research-prompts.ts
+  s_fb54cef8df01b1::t_0a998dccd87e72 80,82-83
+  s_fb54cef8df01b1::t_86cfc67006778f 1-78,90,92-115,117-118,127-186
+  s_fb54cef8df01b1::t_5ee022b4efb397 116,119-126
+  s_fb54cef8df01b1::t_e72532dc4d1a0a 79,81,84-89,91
+apps/web/src/lib/api/server.ts
+  s_fb54cef8df01b1::t_259db7f1d9f940 2-7,48-62
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_fb54cef8df01b1::t_13fc123913fcc6 414
+  s_fb54cef8df01b1::t_2dbaaa5746dd5e 162-171,186,189,192
+  s_fb54cef8df01b1::t_96a357f8a3541e 4,145-161,172-185,187-188,190-191,193-274,276,281,283,295-305,311-314,336-339,373-405,412,418-420,434-453,496,500-502,557-563
+  s_fb54cef8df01b1::t_afcda88f87cba1 8,413,415-416,478-482
+  s_fb54cef8df01b1::t_1de3e87e4d793b 406-411,490-494,565-570,582,597,614,618,622,634
+  s_fb54cef8df01b1::t_aa8bf76eadedbd 508-510
+apps/web/src/components/studies/edit-topics-dialog.tsx
+  s_fb54cef8df01b1::t_316395f0c78a42 502,510,556,564
+apps/api/src/db/repositories/analysis.ts
+  s_fb54cef8df01b1::t_494c7d174f4902 1-35,38-143,145-188,206-234
+  s_fb54cef8df01b1::t_b5bd17d22ba242 144
+  s_fb54cef8df01b1::t_b2cc832277bcb6 189-205
+  s_fb54cef8df01b1::t_6eb168721bcf00 36-37
+apps/api/src/plugins/ai.ts
+  s_fb54cef8df01b1::t_676b2c46b2b1ea 7-10,15,21,29-31
+apps/api/src/routes/studies.ts
+  s_fb54cef8df01b1::t_7870ce20800638 15,27,195-211
+  s_fb54cef8df01b1::t_908faeaab27c9a 18,20,30,32,131,212-252
+apps/web/src/components/studies/study-summary-card.tsx
+  s_fb54cef8df01b1::t_c9cafb40bfdaaf 170
+  s_fb54cef8df01b1::t_6478f7e971ad32 3,6,16,19,67-77,110-125,335-349
+  s_fb54cef8df01b1::t_b40d800d4a4412 210-240
+  s_fb54cef8df01b1::t_b2581b61140642 46,48-49,51-54
+  s_fb54cef8df01b1::t_71664477e08f34 104-105,272,278,290
+apps/api/src/db/schema.ts
+  s_fb54cef8df01b1::t_257260f3b2cb06 35
+  s_fb54cef8df01b1::t_3641d49975052c 82
+  s_fb54cef8df01b1::t_922f043bea64fc 300-301
+  s_fb54cef8df01b1::t_96f9beeafac1e7 12-16,58-70,137-138,142-145,291-299,302-347,358-359
+apps/api/src/worker.ts
+  s_fb54cef8df01b1::t_016bdfc649070d 1-45
+apps/api/src/lib/study-plan-derived.ts
+  s_fb54cef8df01b1::t_f7ec6ff7e9a121 1-40
+apps/api/src/lib/store.ts
+  s_fb54cef8df01b1::t_a6b35b2316ee55 316,318-319
+  s_fb54cef8df01b1::t_505e830186a16d 2209-2211,2217-2218
+  s_fb54cef8df01b1::t_dcc61b69985fef 308-311,338-341,375,470-473,594,606,614,643
+  s_fb54cef8df01b1::t_5c6d70fddb9738 4,602-605,607-611,626
+  s_fb54cef8df01b1::t_3478144d2c10c0 640,642,644-645
+  s_fb54cef8df01b1::t_8674dd2c9073ff 468-469,474-475,493-502,504-523,525-541,543-552,558-559,563
+  s_fb54cef8df01b1::t_f797d704377bfc 1170
+  s_fb54cef8df01b1::t_4a05838c03dab2 1255-1258,1260-1268,1271-1272,1275,1280-1281
+  s_fb54cef8df01b1::t_55461314f0eb70 560
+  s_fb54cef8df01b1::t_86556fd2f2b363 1457-1494,1527-1599
+  s_fb54cef8df01b1::t_41c8312ec300ae 1072,1074,1078-1079,1168,1197-1198,1217
+  s_fb54cef8df01b1::t_8fd10511d9d6cc 108-109
+  s_fb54cef8df01b1::t_392b401e47d7b9 1691,1695-1697
+  s_fb54cef8df01b1::t_e6069e2a0ce80b 883-886
+  s_fb54cef8df01b1::t_3acc283ce0f3e9 1259,1269-1270,1273-1274,1276-1278
+  s_fb54cef8df01b1::t_69d92d2a8436d2 1046,1053-1057
+  s_fb54cef8df01b1::t_3a9761e63d71fc 1600-1639
+  s_fb54cef8df01b1::t_517349cd90d418 36,42-45
+  s_fb54cef8df01b1::t_ada03b856e098e 985,987
+  s_fb54cef8df01b1::t_ff12deb83af0e4 823-826
+  s_fb54cef8df01b1::t_9103459b4154d8 658,663-665,673,676-715,718,720,722-723,726,731-732,734-736,739-741,743-745,747-758,770-771,773-774,776-777
+  s_fb54cef8df01b1::t_4f1fa195bb50b6 304,312,317,337,342-345,350,354,371-374,380-411,413-415,417
+  s_fb54cef8df01b1::t_e1558192ce36a9 110-112
+  s_fb54cef8df01b1::t_7e38f1482b894e 113,118-120,286,297
+  s_fb54cef8df01b1::t_39444528c528bc 114-117,132-137,1743-1749,1756-1760,1870-1872
+  s_fb54cef8df01b1::t_be8ee8e897d1d6 280,284,290-296
+  s_fb54cef8df01b1::t_ff6855b368d03b 654-657,659-662
+  s_fb54cef8df01b1::t_fd50399e5c093a 1076,1185-1186,1188,1196
+  s_fb54cef8df01b1::t_c196efd2f15346 1087,1095,1116,1124,1143,1151
+  s_fb54cef8df01b1::t_b48bc5e2f5b237 1244,1252-1253,1279,1282
+  s_fb54cef8df01b1::t_9797c249e2bf1c 592-593,619-620,624-625,627-629,631-633,635-638
+  s_fb54cef8df01b1::t_a9ec7f68045bff 265-279
+  s_fb54cef8df01b1::t_1f63268a743d0a 376-379
+  s_fb54cef8df01b1::t_a4e1ed536245f4 1307-1314,1346-1353,1397
+  s_fb54cef8df01b1::t_16688dab806959 1321,1323,1329,1360-1361
+  s_fb54cef8df01b1::t_36724b1de8dd27 1495-1526
+  s_fb54cef8df01b1::t_3efffaa4d6505c 2212-2216
+  s_fb54cef8df01b1::t_bf35ebfc6f464d 1073
+  s_fb54cef8df01b1::t_d32d515934e01d 127-130,412,416,418-454
+  s_fb54cef8df01b1::t_75e446dc44f823 575-579,582-586,591,597-600,613,618,622,639,641,646
+  s_fb54cef8df01b1::t_310c49d774abe5 1075,1077,1080-1086,1088-1094,1096-1115,1117-1123,1125-1142,1144-1150,1152-1162,1190,1201-1203,1205-1208,1210-1215
+  s_fb54cef8df01b1::t_af338481ab7946 1169,1171-1182
+  s_fb54cef8df01b1::t_41ebffaef81588 1405
+  s_fb54cef8df01b1::t_01236ff7ff2f0b 1640-1690,1692-1694,1698-1742,1750-1755,1761-1869,1873-1886
+  s_fb54cef8df01b1::t_565d3f4500fb98 8,22-23,33-35,37-41,46-47,79,103-107
+  s_fb54cef8df01b1::t_fe3b055e3b88f5 724,742,746
+  s_fb54cef8df01b1::t_0ee3ebc412a7eb 785-791,796,799,807-822,827-830
+  s_fb54cef8df01b1::t_6ca5a5f8dd0657 717,721,725,727-729,733,737
+apps/api/src/lib/session-debrief-validation.ts
+  s_fb54cef8df01b1::t_91097086eecc5f 1-122
+packages/contracts/src/studies.ts
+  s_fb54cef8df01b1::t_cb19105de58513 132
+  s_fb54cef8df01b1::t_d903b760ea69de 357-364
+  s_fb54cef8df01b1::t_0a5d110fcca09d 97-103,182,186-189,207-325,349-356
+  s_fb54cef8df01b1::t_67f607352513ed 8,18,131,155
+  s_fb54cef8df01b1::t_d3e15b57844f4c 336
+  s_fb54cef8df01b1::t_7d9bbc03df21a4 41-50,54,60-78,196
+  s_fb54cef8df01b1::t_1b0060d91d4fe6 184
+packages/contracts/src/index.ts
+  s_fb54cef8df01b1::t_c90e2da000f1f9 32
+  s_fb54cef8df01b1::t_6e5200f24661de 35,37-43
+apps/api/src/db/repositories/public-interviews.ts
+  s_fb54cef8df01b1::t_016b7874933d94 112-121
+apps/web/src/components/interviews/interview-debrief-page.tsx
+  s_43077c09d1f30f::t_56f92727f395a8 1-18,24-61,63-69,71-597,601-612,622-646,648-899
+  s_fb54cef8df01b1::t_a3f950ce2e5722 19-23
+  s_fb54cef8df01b1::t_57a76e235b480c 62,70
+  s_43077c09d1f30f::t_edfb86e2827a2d 598-600,613-621,647
+apps/api/src/lib/study-plan-validation.ts
+  s_fb54cef8df01b1::t_1dfb10f6208d13 1-31,38-52,55-58,61-63,66-68,71,73,75,77,79,82,84,89-90,93-99,102-103,106-112,114,116-119,122-125,128-130,137-138,140-144,146-150,152,155-157,159-162,165-182,184-187,189,191-212,214-216,218-230
+  s_fb54cef8df01b1::t_0d0016dbddb11f 32-37,131-132,134-136
+  s_fb54cef8df01b1::t_255ad3c7ff9852 59,64,69,72,74,78,80,83,85,213
+apps/api/src/lib/session-debrief-validation.test.ts
+  s_fb54cef8df01b1::t_f1b3540ee32d94 1-202
+.env.example
+  s_fb54cef8df01b1::t_e16d4524f2e5b0 9-11,13
+apps/api/drizzle/0003_archived_study_status.sql
+  s_fb54cef8df01b1::t_86d256b757655b 1
+apps/web/src/components/studies/study-detail-page.tsx
+  s_fb54cef8df01b1::t_1a814b3b23446b 394-399
+  s_fb54cef8df01b1::t_8a9fa6c3228918 97-101,232,495-516,673-677
+  s_fb54cef8df01b1::t_6f5a25621d6b4d 62-69,71-72,122-123
+  s_43077c09d1f30f::t_0ab792f255f3a4 306,309,319-325,328,585-588,644-647
+  s_fb54cef8df01b1::t_88f24d1294160a 317,363-372,452-470
+  s_fb54cef8df01b1::t_451e32051a6b44 70
+apps/api/src/lib/study-plan-validation.test.ts
+  s_fb54cef8df01b1::t_093116b634f0b6 1-17,19,27-32,34-40,42-43,49-52,55-95,119-131
+  s_fb54cef8df01b1::t_41fa1f0dc5d1dc 18,20-26,33,41,44-48,53-54
+  s_fb54cef8df01b1::t_ff4d6ad9cb0f00 96-118
+apps/web/src/app/(app)/studies/[studyId]/interviews/[sessionId]/debrief/page.tsx
+  s_fb54cef8df01b1::t_b5b17d63e53920 1,5,19,21,25-71
+  s_43077c09d1f30f::t_56f92727f395a8 2-4,6-12,20,22-24,72
+  s_43077c09d1f30f::t_ed32fe7b013494 13-18
+packages/contracts/src/client.ts
+  s_fb54cef8df01b1::t_a086c92a94f773 20,22,128-129,136-143
+  s_fb54cef8df01b1::t_0ebf00d49f977b 17,130-135
+apps/api/src/db/repositories/studies.ts
+  s_fb54cef8df01b1::t_a6ca60cb9d3446 1,38-39
+  s_fb54cef8df01b1::t_4d52c74b409f6e 166-168,179,220-221,225
+apps/api/src/lib/analysis-worker.ts
+  s_fb54cef8df01b1::t_74b940069babe6 1-58
+apps/api/drizzle/0002_tired_mindworm.sql
+  s_fb54cef8df01b1::t_353e77f330903c 1-40
+apps/api/src/ai/research-schemas.ts
+  s_fb54cef8df01b1::t_8ab3cb9ebd9b0f 56-67,69-78,80-98,100-113,124-131
+  s_fb54cef8df01b1::t_bba9a9ba6b66f2 10,14,17-20,22-23,26-36,38-39,42-43,46
+  s_fb54cef8df01b1::t_31fd8aca16d851 1-7,45,47-55,68,79,99,114-123,132-159
+  s_fb54cef8df01b1::t_b39dfd8650317a 8-9,11-13,15-16,21,24-25,37,40-41,44
+apps/api/src/app.test.ts
+  s_fb54cef8df01b1::t_1265680931075a 137-139,141,152,158-160,199-209
+  s_fb54cef8df01b1::t_dc2ab9060144f5 119
+  s_fb54cef8df01b1::t_2b1b046c118236 311-314
+  s_fb54cef8df01b1::t_68006ec494b1ac 259,352,368,384,664,978,1124,1272
+  s_fb54cef8df01b1::t_55b146fbbcecc2 1198-1216
+  s_fb54cef8df01b1::t_9812775b0663c3 925-926,928,930-932,936,945,948-949
+  s_43077c09d1f30f::t_0ab792f255f3a4 918-924,929,952
+  s_fb54cef8df01b1::t_f0497b78222714 283
+  s_fb54cef8df01b1::t_798563d1f21666 413-433
+  s_fb54cef8df01b1::t_7e7ef2a717f7ec 933
+  s_fb54cef8df01b1::t_849f3ab871c8f1 696-698,702,705-707,710,726-728,732
+  s_fb54cef8df01b1::t_a411de174a14fd 94-95,101,103-109,111,116,121-130
+  s_fb54cef8df01b1::t_18e0838f7d527e 506-654
+  s_fb54cef8df01b1::t_aadacacca56429 1097-1123,1125-1197,1217-1246
+  s_fb54cef8df01b1::t_a68bc306f29b46 7
+  s_fb54cef8df01b1::t_ba6d32fa839a1f 1087
+  s_fb54cef8df01b1::t_9f92d091c91676 927,934-935,937-944,946-947,950-951
+  s_fb54cef8df01b1::t_698a792e269025 1060-1078,1084-1086,1088-1096
+  s_fb54cef8df01b1::t_9647715e09c66f 729-731
+  s_fb54cef8df01b1::t_62aed25c554354 1079-1083
+  s_fb54cef8df01b1::t_9c8ce2bcb6f907 5,84-93,96-100,102,110,112-115,117-118,120,131-136,140,142-151,153-157,161-198,210-252,319,325
+  s_fb54cef8df01b1::t_c27e2b45eb0da6 699-701,708-709,711-717
+apps/api/src/server.ts
+  s_fb54cef8df01b1::t_cc450a2e4c9d08 16,18,26
+  s_fb54cef8df01b1::t_27639710a36bb4 2,17,20-25
+  s_fb54cef8df01b1::t_c17ad0c508674e 8-12,19
+apps/api/src/ai/research-service.ts
+  s_fb54cef8df01b1::t_a954b770549dc5 1-148
+apps/api/src/lib/study-analysis.ts
+  s_fb54cef8df01b1::t_dd6cffccae19c3 1-170
+apps/api/src/app.ts
+  s_fb54cef8df01b1::t_22f54677699513 8,21,84
+apps/api/package.json
+  s_fb54cef8df01b1::t_1bc862b9541f08 8,11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "5a729dffb6974230d5d1d3f09ad6b68e53c3e58a",
+  "prompts": {},
+  "sessions": {
+    "s_43077c09d1f30f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1411-ea1a-7372-9262-75eab04adb2b",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    },
+    "s_fb54cef8df01b1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e12b2-ee15-7d33-a1ec-34ba16c787f2",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
