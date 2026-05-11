@@ -1,0 +1,58 @@
+apps/api/src/app.test.ts
+  s_9916e8ec374797::t_d7cb1fa1239522 757-759
+  s_9916e8ec374797::t_87179652667ec4 109-110,132-133,664-667
+  s_9916e8ec374797::t_f11f1212d7b843 257-293,309
+  s_9916e8ec374797::t_55a257060840dd 822-823
+  s_9916e8ec374797::t_74ee11cb29b80f 1121,1263,1407
+apps/web/src/app/(app)/studies/[studyId]/plan/page.tsx
+  s_9916e8ec374797::t_fe76389286e391 4-8,16,18,29
+apps/web/src/components/studies/study-form.tsx
+  s_9916e8ec374797::t_c69c0885ede66a 83
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_9916e8ec374797::t_9a2da26446ee16 6,14,24
+  s_9916e8ec374797::t_c65f0be6b5d30c 299,304,330-337,340-347,350,352-355,371-379,387-394,441-446,454-455,471
+packages/contracts/src/client.ts
+  s_9916e8ec374797::t_5a73fcf9d084b1 9,165-169,171-173,176-177
+packages/contracts/src/index.ts
+  s_9916e8ec374797::t_5a73fcf9d084b1 10-11
+apps/api/src/routes/studies.ts
+  s_9916e8ec374797::t_527ca3f03a658a 15,20,51,53,140-161,168,173,175-177
+apps/api/src/db/repositories/analysis.ts
+  s_9916e8ec374797::t_faac7c68e864bb 6-10,66,90,113
+packages/contracts/src/plans.ts
+  s_9916e8ec374797::t_5a73fcf9d084b1 39-61
+apps/api/src/lib/store.ts
+  s_9916e8ec374797::t_d7f6fa1e79c0d5 1490,1493,1500-1501,1503-1507,1509-1510,1513-1514,1524
+  s_9916e8ec374797::t_153e008cd465fa 1517,1519-1521
+  s_9916e8ec374797::t_1b02e87189afe9 1707-1719,1721,1723-1731,1748-1761,1763-1766,1768-1771,1790-1803,1805-1813
+  s_9916e8ec374797::t_d1f6531c772375 1734-1740,1743-1744,1746-1747,1762
+  s_9916e8ec374797::t_e7a03a68ebf8f2 1745,1767,1772-1773
+  s_9916e8ec374797::t_13bec946252637 25
+  s_9916e8ec374797::t_7c52b2e2b29bd5 1992-2037
+  s_9916e8ec374797::t_b848bde4665c46 232-240
+  s_9916e8ec374797::t_5ab7db4b4534b8 834-881
+  s_9916e8ec374797::t_798bfa7b35764e 1263-1264
+apps/web/src/lib/api/server.ts
+  s_9916e8ec374797::t_5068292aa6398d 8,57-61
+apps/api/src/db/schema.ts
+  s_9916e8ec374797::t_f53de16dcdaaa4 343-352
+  s_9916e8ec374797::t_faac7c68e864bb 59,323
+apps/api/drizzle/0005_plan_generation_job.sql
+  s_9916e8ec374797::t_62ff1b8b1a3862 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "065d312a735f579c5fad7a5acaf6a094eaba2e52",
+  "prompts": {},
+  "sessions": {
+    "s_9916e8ec374797": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1945-ca61-71d0-aaf7-517e91fee43a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
