@@ -1,0 +1,50 @@
+apps/api/src/app.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 1-2,4,11-14,16,21,25,28,32,49,52-66,69,72-80,84-96,98-110,113,121-122,124-127,130,133
+  s_8e3e6b555fd1c8::t_a2db06e0fbb510 71
+  s_8e3e6b555fd1c8::t_fb7d91947ae556 43-48,68,70,81-83
+apps/api/src/app.test.ts
+  s_8e3e6b555fd1c8::t_e1494ac039e8e4 325,342-354,368-391
+  s_8e3e6b555fd1c8::t_930c8da2231319 355-367,736-738
+apps/api/src/worker.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 3,6-7,9,22
+apps/api/src/ai/service.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 23,86-94,96-98,102-103,108-110,113-114,132-133,167-168
+apps/api/src/lib/config.ts
+  s_8e3e6b555fd1c8::t_47e16ed72fde74 1-49
+apps/api/src/plugins/ai.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 27,31,33-35
+apps/api/src/ai/research-service.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 21,49-59,64,66-69,74,85,103-105,108-109,111,127-128,130,146-147,149
+apps/api/src/server.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 2,5-6,17,21,26,28
+apps/api/src/plugins/database.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 1,19-22,24,28,31,33-35
+apps/api/src/routes/studies.ts
+  s_8e3e6b555fd1c8::t_a1bf0595e93875 2,8-9,16-19,30-37,53-66,69,76,81,87,94,99,103,107,110,115,120,124,127,132,137,141,145,150,155,159,163,168-169,173,177,181,186,191,195,199,204,209,213,217,222,227,231,235,240,245,249,252,257
+apps/api/package.json
+  s_8e3e6b555fd1c8::t_f3df53a57f33eb 21,27
+apps/api/src/routes/health.ts
+  s_8e3e6b555fd1c8::t_6eb8c8d7d3b11e 2,5-6,11-12,14,20,32
+apps/api/src/schemas/http.ts
+  s_8e3e6b555fd1c8::t_47e16ed72fde74 1-28
+apps/api/src/routes/public-interviews.ts
+  s_8e3e6b555fd1c8::t_a1bf0595e93875 5,12-16,30,75-80,82,86,95,108,113-114,118-119,131,327-331,335,339,344-345
+apps/api/src/plugins/config.ts
+  s_8e3e6b555fd1c8::t_47e16ed72fde74 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "dcb206c64ba24340225065cdfd647a15216aa1d7",
+  "prompts": {},
+  "sessions": {
+    "s_8e3e6b555fd1c8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e142b-e6d6-79a1-b437-b4def3398799",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
