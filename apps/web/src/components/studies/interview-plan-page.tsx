@@ -408,6 +408,8 @@ export function InterviewPlanPage({
   const canEditPlan = studyDetailQuery.data?.canEditPlan ?? true;
   const canRegeneratePlan = studyDetailQuery.data?.canRegeneratePlan ?? true;
   const canStartInterview = studyDetailQuery.data?.canStartInterview ?? false;
+  const canApproveBeforeStart = !hasApprovedPlan && canApprovePlan;
+  const canLaunchInterview = canStartInterview || canApproveBeforeStart;
   const studyEnded = studyDetailQuery.data?.status === "completed";
   const initialPlanGenerationPending = initialPlanGenerationMutation.isPending;
   const regenerationPending = regeneratePlanMutation.isPending;
@@ -603,13 +605,13 @@ export function InterviewPlanPage({
                   <Button
                     type="button"
                     size="lg"
-                    disabled={!canStartInterview || actionButtonsDisabled}
+                    disabled={!canLaunchInterview || actionButtonsDisabled}
                     onClick={() => {
                       setError(null);
                       launchInterviewMutation.mutate(
-                        { approveFirst: !hasApprovedPlan && canApprovePlan },
+                        { approveFirst: canApproveBeforeStart },
                         {
-                        onError: () => {
+                          onError: () => {
                             setError(
                               canStartInterview
                                 ? "We could not start the interview."
@@ -623,9 +625,9 @@ export function InterviewPlanPage({
                   >
                     {launchInterviewMutation.isPending
                       ? "Starting interview..."
-                      : canStartInterview
-                        ? "Start Interview"
-                        : "Approve & Start Interview"}
+                      : canApproveBeforeStart
+                        ? "Approve & Start Interview"
+                        : "Start Interview"}
                   </Button>
                 </div>
               </section>
