@@ -14,6 +14,10 @@ export const StudyPlanSchema = Type.Object({
   studyId: Type.String(),
   title: Type.String(),
   subtitle: Type.String(),
+  estimatedDurationLabel: Type.Optional(Type.String()),
+  estimatedDurationMinutes: Type.Optional(
+    Type.Number({ minimum: 1, maximum: 120 }),
+  ),
   objective: Type.String(),
   hypotheses: Type.Array(Type.String()),
   topics: Type.Array(Type.String()),
@@ -59,4 +63,3 @@ export const ApprovePlanResponseSchema = Type.Object({
 });
 
 export type ApprovePlanResponse = Static<typeof ApprovePlanResponseSchema>;
-

@@ -29,9 +29,18 @@ export type {
 } from "./public-interviews.js";
 export { SKIP_QUESTION_MESSAGE } from "./public-interviews.js";
 export type {
+  ArchiveStudyResponse,
   CreateStudyInput,
   CreateStudyResponse,
+  EndStudyResponse,
   ListStudiesQuery,
+  SessionDebrief,
+  SessionDebriefCoverage,
+  SessionDebriefEvidenceItem,
+  SessionDebriefReasoningRow,
+  SessionDebriefResponse,
+  SessionDebriefSummary,
+  SessionDebriefTranscriptRow,
   StudyActivityItem,
   StudyDetail,
   StudyListSort,

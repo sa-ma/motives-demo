@@ -12,18 +12,24 @@ import {
   UpdateStudyPlanInputSchema,
 } from "@motives-ai/contracts/plans";
 import {
+  ArchiveStudyResponseSchema,
   CreateStudyInputSchema,
   CreateStudyResponseSchema,
+  EndStudyResponseSchema,
   ListStudiesQuerySchema,
+  SessionDebriefResponseSchema,
   StudyDetailSchema,
   StudySummarySchema,
 } from "@motives-ai/contracts/studies";
 
 import {
   approveStudyPlan,
+  archiveStudy,
   createStudy,
   createStudyInvite,
+  endStudy,
   generateStudyPlan,
+  getStudySessionDebrief,
   getStudyDetail,
   getStudyPlan,
   listStudies,
@@ -122,7 +128,7 @@ const studiesRoutesPlugin: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const { studyId } = request.params as { studyId: string };
-      return await generateStudyPlan(app.db, studyId);
+      return await generateStudyPlan(app.db, studyId, app.researchAiService);
     },
   );
 
@@ -184,6 +190,66 @@ const studiesRoutesPlugin: FastifyPluginAsync = async (app) => {
     async (request) => {
       const { studyId } = request.params as { studyId: string };
       return await createStudyInvite(app.db, app.appBaseUrl, studyId);
+    },
+  );
+
+  app.post(
+    "/:studyId/archive",
+    {
+      schema: {
+        params: Type.Object({
+          studyId: Type.String(),
+        }),
+        body: Type.Object({}, { additionalProperties: false }),
+        response: {
+          200: ArchiveStudyResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      const { studyId } = request.params as { studyId: string };
+      return await archiveStudy(app.db, studyId);
+    },
+  );
+
+  app.post(
+    "/:studyId/end",
+    {
+      schema: {
+        params: Type.Object({
+          studyId: Type.String(),
+        }),
+        body: Type.Object({}, { additionalProperties: false }),
+        response: {
+          200: EndStudyResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      const { studyId } = request.params as { studyId: string };
+      return await endStudy(app.db, studyId);
+    },
+  );
+
+  app.get(
+    "/:studyId/interviews/:sessionId/debrief",
+    {
+      schema: {
+        params: Type.Object({
+          sessionId: Type.String(),
+          studyId: Type.String(),
+        }),
+        response: {
+          200: SessionDebriefResponseSchema,
+        },
+      },
+    },
+    async (request) => {
+      const { sessionId, studyId } = request.params as {
+        sessionId: string;
+        studyId: string;
+      };
+      return await getStudySessionDebrief(app.db, studyId, sessionId);
     },
   );
 };

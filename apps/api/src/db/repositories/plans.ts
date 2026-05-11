@@ -4,6 +4,7 @@ import type { StudyPlan } from "@motives-ai/contracts";
 
 import type { DatabaseExecutor } from "../client.js";
 import { studyPlanVersion } from "../schema.js";
+import { hydrateStudyPlanDerivedFields } from "../../lib/study-plan-derived.js";
 
 export async function findCurrentPlanVersion(
   db: DatabaseExecutor,
@@ -22,12 +23,12 @@ export async function findCurrentPlanVersion(
 
 export async function findCurrentDraftPlan(db: DatabaseExecutor, studyId: string) {
   const row = await findCurrentPlanVersion(db, studyId, "draft");
-  return row?.content ?? null;
+  return row ? hydrateStudyPlanDerivedFields(row.content) : null;
 }
 
 export async function findCurrentApprovedPlan(db: DatabaseExecutor, studyId: string) {
   const row = await findCurrentPlanVersion(db, studyId, "approved");
-  return row?.content ?? null;
+  return row ? hydrateStudyPlanDerivedFields(row.content) : null;
 }
 
 export async function findCurrentPlan(db: DatabaseExecutor, studyId: string) {

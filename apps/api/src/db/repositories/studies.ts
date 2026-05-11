@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 
 import type {
   ListStudiesQuery,
@@ -35,6 +35,8 @@ export async function listStudiesOrdered(
     conditions.push(inArray(study.status, ["interviewing", "analyzing"]));
   } else if (query.status) {
     conditions.push(eq(study.status, query.status));
+  } else {
+    conditions.push(ne(study.status, "archived"));
   }
 
   if (search) {
@@ -161,6 +163,9 @@ export async function countSessions(db: DatabaseExecutor, studyId: string) {
       completed: sql<number>`
         coalesce(sum(case when ${interviewSession.sessionStatus} = 'complete' then 1 else 0 end), 0)
       `.mapWith(Number),
+      active: sql<number>`
+        coalesce(sum(case when ${interviewSession.sessionStatus} in ('welcome', 'details', 'preparing', 'room') then 1 else 0 end), 0)
+      `.mapWith(Number),
       live: sql<number>`
         coalesce(sum(case when ${interviewSession.sessionStatus} = 'room' then 1 else 0 end), 0)
       `.mapWith(Number),
@@ -171,6 +176,7 @@ export async function countSessions(db: DatabaseExecutor, studyId: string) {
   const row = rows[0];
 
   return {
+    active: row?.active ?? 0,
     total: row?.total ?? 0,
     completed: row?.completed ?? 0,
     live: row?.live ?? 0,
@@ -211,9 +217,12 @@ export async function upsertStudyAggregate(
       target: studyAggregate.studyId,
       set: {
         coverage: values.coverage,
+        contradictionCount: values.contradictionCount,
+        completedSessionCount: values.completedSessionCount,
         signalCount: values.signalCount,
         themes: values.themes,
         hiddenThemesCount: values.hiddenThemesCount,
+        topicCoverage: values.topicCoverage,
         observation: values.observation,
         updatedAt: values.updatedAt,
       },

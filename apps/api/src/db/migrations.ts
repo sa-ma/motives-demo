@@ -24,6 +24,8 @@ export async function truncateAllTables(databaseUrl: string) {
   try {
     await pool.query(`
       TRUNCATE TABLE
+        analysis_job,
+        debrief_report,
         session_annotation,
         transcript_turn,
         participant_profile,

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@motives-ai/contracts/client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock3, Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 
 import type {
   StudyDetail as StudyDetailModel,
@@ -141,13 +142,145 @@ function ExampleProbeCallout({ items }: { items: string[] }) {
   );
 }
 
+function PlanSkeletonBlock({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-2xl bg-zinc-100/90", className)} />;
+}
+
+function InitialPlanGenerationState({
+  canRetry,
+  error,
+  isGenerating,
+  onRetry,
+  studyId,
+}: {
+  canRetry: boolean;
+  error: string | null;
+  isGenerating: boolean;
+  onRetry: () => void;
+  studyId: string;
+}) {
+  const title = isGenerating
+    ? "Generating your interview plan"
+    : "No interview plan yet";
+  const description = isGenerating
+    ? "We're turning your study brief into a first draft. This usually takes 10-20 seconds."
+    : "This study does not have a saved draft yet. Generate a first draft to continue.";
+  const supportingCopy = isGenerating
+    ? "Nothing to review yet. This page will update automatically when the draft is ready."
+    : "No current plan will be replaced because there isn't one yet.";
+
+  return (
+    <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))]">
+      <div className="flex w-full flex-col gap-6 px-4 py-7 sm:px-6 lg:px-6 lg:py-9 xl:px-8 2xl:px-12">
+        <section className="flex flex-col gap-5">
+          <Link
+            href={`/studies/${studyId}`}
+            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-950"
+          >
+            <ArrowLeft className="size-4" />
+            Back to Study
+          </Link>
+
+          <div className="max-w-3xl space-y-3">
+            <h1 className="font-heading text-[1.9rem] leading-none font-semibold tracking-tight text-zinc-950 sm:text-[2.2rem]">
+              {title}
+            </h1>
+            <p className="text-[15px] leading-7 text-zinc-500">
+              {description}
+            </p>
+            <p className="text-[14px] leading-7 text-zinc-500">
+              {supportingCopy}
+            </p>
+          </div>
+        </section>
+
+        {error ? (
+          <div className="max-w-3xl rounded-[24px] border border-rose-100 bg-white/96 p-6 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.24)]">
+            <p className="text-[14px] leading-7 text-rose-600">
+              {error}
+            </p>
+            <p className="mt-2 text-[14px] leading-7 text-zinc-500">
+              Your study was created, but no new draft was saved.
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onRetry}
+              disabled={!canRetry}
+              className="mt-5 h-11 rounded-xl px-5 text-sm font-semibold"
+            >
+              <RefreshCcw className={cn("size-4", isGenerating && "animate-spin")} />
+              {isGenerating ? "Generating..." : "Try Again"}
+            </Button>
+          </div>
+        ) : null}
+
+        <section className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
+          <PlanColumn>
+            <PlanSection title="Objective">
+              <div className="space-y-3">
+                <PlanSkeletonBlock className="h-5 w-[86%]" />
+                <PlanSkeletonBlock className="h-5 w-[92%]" />
+                <PlanSkeletonBlock className="h-5 w-[72%]" />
+              </div>
+            </PlanSection>
+            <PlanSeparator />
+            <PlanSection title="Key Hypotheses">
+              <div className="space-y-4">
+                <PlanSkeletonBlock className="h-6 w-[88%]" />
+                <PlanSkeletonBlock className="h-6 w-[81%]" />
+                <PlanSkeletonBlock className="h-6 w-[77%]" />
+              </div>
+            </PlanSection>
+            <PlanSeparator />
+            <PlanSection title="Core Topics">
+              <div className="space-y-4">
+                <PlanSkeletonBlock className="h-6 w-[70%]" />
+                <PlanSkeletonBlock className="h-6 w-[64%]" />
+                <PlanSkeletonBlock className="h-6 w-[68%]" />
+              </div>
+            </PlanSection>
+          </PlanColumn>
+
+          <PlanColumn>
+            <PlanSection title="Opening Question">
+              <div className="space-y-3">
+                <PlanSkeletonBlock className="h-5 w-[90%]" />
+                <PlanSkeletonBlock className="h-5 w-[82%]" />
+              </div>
+            </PlanSection>
+            <PlanSeparator />
+            <PlanSection title="Probing Strategy">
+              <div className="space-y-4">
+                <PlanSkeletonBlock className="h-6 w-[84%]" />
+                <PlanSkeletonBlock className="h-6 w-[74%]" />
+                <PlanSkeletonBlock className="h-6 w-[79%]" />
+                <div className="rounded-[20px] border border-primary/12 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(238,242,255,0.82))] px-5 py-4">
+                  <PlanSkeletonBlock className="h-5 w-32 bg-white/90" />
+                  <div className="mt-4 space-y-3">
+                    <PlanSkeletonBlock className="h-5 w-[91%]" />
+                    <PlanSkeletonBlock className="h-5 w-[87%]" />
+                    <PlanSkeletonBlock className="h-5 w-[79%]" />
+                  </div>
+                </div>
+              </div>
+            </PlanSection>
+          </PlanColumn>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export function InterviewPlanPage({
+  autoGenerateOnMount = false,
   initialStudyDetail,
   plan,
   studyId,
 }: {
+  autoGenerateOnMount?: boolean;
   initialStudyDetail: StudyDetailModel;
-  plan: StudyPlanModel;
+  plan: StudyPlanModel | null;
   studyId: string;
 }) {
   const queryClient = useQueryClient();
@@ -159,12 +292,26 @@ export function InterviewPlanPage({
   });
   const planQuery = useQuery({
     queryKey: ["study-plan", studyId],
-    queryFn: () => browserApiClient.plans.get(studyId),
+    queryFn: async () => {
+      try {
+        return await browserApiClient.plans.get(studyId);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
     initialData: plan,
   });
   const [editablePlan, setEditablePlan] = useState(planQuery.data);
   const [isEditTopicsOpen, setIsEditTopicsOpen] = useState(false);
   const [editTopicsSession, setEditTopicsSession] = useState(0);
+  const [hasAutoGenerationStarted, setHasAutoGenerationStarted] = useState(false);
+  const [generationMode, setGenerationMode] = useState<"initial" | "regenerate" | null>(
+    autoGenerateOnMount && !plan ? "initial" : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const updatePlanMutation = useMutation({
     mutationFn: (nextPlan: StudyPlanModel) =>
@@ -186,6 +333,10 @@ export function InterviewPlanPage({
       queryClient.setQueryData(["study-plan", studyId], nextPlan);
       setEditablePlan(nextPlan);
       setError(null);
+      setGenerationMode(null);
+    },
+    onError: () => {
+      setGenerationMode(null);
     },
   });
   const approvePlanMutation = useMutation({
@@ -219,9 +370,54 @@ export function InterviewPlanPage({
     setEditablePlan(planQuery.data);
   }, [planQuery.data]);
 
-  const hasApprovedPlan = studyDetailQuery.data?.canStartInterview ?? false;
+  useEffect(() => {
+    if (
+      !autoGenerateOnMount ||
+      hasAutoGenerationStarted ||
+      editablePlan ||
+      regeneratePlanMutation.isPending
+    ) {
+      return;
+    }
+
+    setHasAutoGenerationStarted(true);
+    setGenerationMode("initial");
+    setError(null);
+
+    regeneratePlanMutation.mutate(undefined, {
+      onSuccess: () => {
+        router.replace(`/studies/${studyId}/plan`);
+      },
+      onError: () => {
+        setError(
+          "We couldn't generate the plan right now. Your study was created, but no draft was saved.",
+        );
+      },
+    });
+  }, [
+    autoGenerateOnMount,
+    editablePlan,
+    hasAutoGenerationStarted,
+    regeneratePlanMutation,
+    router,
+    studyId,
+  ]);
+
+  const hasApprovedPlan = studyDetailQuery.data?.hasApprovedPlan ?? false;
+  const canApprovePlan = studyDetailQuery.data?.canApprovePlan ?? true;
+  const canEditPlan = studyDetailQuery.data?.canEditPlan ?? true;
+  const canRegeneratePlan = studyDetailQuery.data?.canRegeneratePlan ?? true;
+  const canStartInterview = studyDetailQuery.data?.canStartInterview ?? false;
+  const studyEnded = studyDetailQuery.data?.status === "completed";
+  const planGenerationPending = regeneratePlanMutation.isPending;
+  const estimatedDurationLabel =
+    editablePlan?.estimatedDurationLabel ??
+    studyDetailQuery.data?.metadata.interviewDurationLabel ??
+    "Estimate after plan generation";
   const actionButtonsDisabled =
-    approvePlanMutation.isPending || launchInterviewMutation.isPending;
+    approvePlanMutation.isPending ||
+    launchInterviewMutation.isPending ||
+    planGenerationPending;
 
   if (planQuery.isError) {
     return (
@@ -235,9 +431,26 @@ export function InterviewPlanPage({
 
   if (!editablePlan) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))] px-4 py-10 text-sm text-zinc-500">
-        Loading interview plan...
-      </div>
+      <InitialPlanGenerationState
+        canRetry={!planGenerationPending && canRegeneratePlan}
+        error={error}
+        isGenerating={planGenerationPending}
+        onRetry={() => {
+          setGenerationMode("initial");
+          setError(null);
+          regeneratePlanMutation.mutate(undefined, {
+            onSuccess: () => {
+              router.replace(`/studies/${studyId}/plan`);
+            },
+            onError: () => {
+              setError(
+                "We couldn't generate the plan right now. Your study was created, but no draft was saved.",
+              );
+            },
+          });
+        }}
+        studyId={studyId}
+      />
     );
   }
 
@@ -262,6 +475,11 @@ export function InterviewPlanPage({
                 <p className="text-[15px] leading-7 text-zinc-500">
                   {editablePlan.subtitle}
                 </p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200/80 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600">
+                  <Clock3 className="size-3.5 text-zinc-400" />
+                  <span>Estimated interview time</span>
+                  <span className="text-zinc-900">{estimatedDurationLabel}</span>
+                </div>
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
@@ -269,18 +487,27 @@ export function InterviewPlanPage({
                   type="button"
                   variant="outline"
                   size="lg"
-                  disabled={regeneratePlanMutation.isPending || actionButtonsDisabled}
+                  disabled={
+                    !canRegeneratePlan ||
+                    regeneratePlanMutation.isPending ||
+                    actionButtonsDisabled
+                  }
                   onClick={() => {
+                    setGenerationMode("regenerate");
                     setError(null);
                     regeneratePlanMutation.mutate(undefined, {
                       onError: () => {
-                        setError("We could not regenerate the plan right now.");
+                        setError(
+                          "We couldn't generate a new draft right now. Your current plan was not changed.",
+                        );
                       },
                     });
                   }}
                   className="rounded-xl border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
                 >
-                  <RefreshCcw className="size-4" />
+                  <RefreshCcw
+                    className={cn("size-4", regeneratePlanMutation.isPending && "animate-spin")}
+                  />
                   {regeneratePlanMutation.isPending ? "Regenerating..." : "Regenerate Plan"}
                 </Button>
               </div>
@@ -327,6 +554,20 @@ export function InterviewPlanPage({
                     {error}
                   </p>
                 ) : null}
+                {planGenerationPending && generationMode === "regenerate" ? (
+                  <div className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-[13px] text-sky-700">
+                    <p className="font-medium text-sky-900">Generating a new draft from your study brief.</p>
+                    <p className="mt-1 text-sky-700">
+                      Your current plan stays visible until the new draft is ready. This usually takes 10-20 seconds.
+                    </p>
+                  </div>
+                ) : null}
+                {studyEnded ? (
+                  <p className="mb-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">
+                    This study has been ended. The approved plan remains visible, but plan edits
+                    and new interview launches are disabled.
+                  </p>
+                ) : null}
                 {hasApprovedPlan ? (
                   <p className="mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-600">
                     New interviews use the latest approved plan. Approve the current plan first if
@@ -338,7 +579,7 @@ export function InterviewPlanPage({
                     type="button"
                     variant="outline"
                     size="lg"
-                    disabled={actionButtonsDisabled}
+                    disabled={!canEditPlan || actionButtonsDisabled}
                     onClick={() => {
                       setEditTopicsSession((current) => current + 1);
                       setIsEditTopicsOpen(true);
@@ -353,7 +594,7 @@ export function InterviewPlanPage({
                       type="button"
                       variant="outline"
                       size="lg"
-                      disabled={actionButtonsDisabled}
+                      disabled={!canApprovePlan || actionButtonsDisabled}
                       onClick={() => {
                         setError(null);
                         approvePlanMutation.mutate(undefined, {
@@ -370,15 +611,15 @@ export function InterviewPlanPage({
                   <Button
                     type="button"
                     size="lg"
-                    disabled={actionButtonsDisabled}
+                    disabled={!canStartInterview || actionButtonsDisabled}
                     onClick={() => {
                       setError(null);
                       launchInterviewMutation.mutate(
-                        { approveFirst: !hasApprovedPlan },
+                        { approveFirst: !hasApprovedPlan && canApprovePlan },
                         {
                         onError: () => {
                             setError(
-                              hasApprovedPlan
+                              canStartInterview
                                 ? "We could not start the interview."
                                 : "We could not approve the plan and start the interview.",
                             );
@@ -390,7 +631,7 @@ export function InterviewPlanPage({
                   >
                     {launchInterviewMutation.isPending
                       ? "Starting interview..."
-                      : hasApprovedPlan
+                      : canStartInterview
                         ? "Start Interview"
                         : "Approve & Start Interview"}
                   </Button>

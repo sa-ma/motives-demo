@@ -1,5 +1,10 @@
 import { ApiError, createApiClient } from "@motives-ai/contracts/client";
-import type { PublicInterviewRouteState, StudyDetail, StudyPlan } from "@motives-ai/contracts";
+import type {
+  PublicInterviewRouteState,
+  SessionDebriefResponse,
+  StudyDetail,
+  StudyPlan,
+} from "@motives-ai/contracts";
 
 function getServerApiBaseUrl() {
   return process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -40,6 +45,21 @@ export async function getInitialStudyPlan(studyId: string): Promise<StudyPlan | 
   }
 }
 
+export async function getInitialSessionDebrief(
+  studyId: string,
+  sessionId: string,
+): Promise<SessionDebriefResponse | null> {
+  try {
+    return await getServerApiClient().studies.debrief(studyId, sessionId);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 export async function getInterviewRouteStateFromApi(
   inviteCode: string,
 ): Promise<PublicInterviewRouteState> {
@@ -58,4 +78,3 @@ export async function getInterviewRouteStateFromApi(
     throw error;
   }
 }
-

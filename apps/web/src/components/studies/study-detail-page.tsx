@@ -12,7 +12,6 @@ import {
   Clock3,
   Ellipsis,
   ExternalLink,
-  FileUp,
   Flag,
   MessageSquareMore,
   Plus,
@@ -60,6 +59,17 @@ const metricProgressClasses: Record<StudyMetricCard["tone"], string> = {
   violet: "bg-[linear-gradient(90deg,#a78bfa,#8b5cf6)]",
 };
 
+const studyStatusBadgeClasses: Record<
+  StudyDetailModel["status"],
+  string
+> = {
+  interviewing: "border-blue-100 bg-blue-50 text-blue-700",
+  planning: "border-sky-100 bg-sky-50 text-sky-700",
+  analyzing: "border-violet-100 bg-violet-50 text-violet-700",
+  completed: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  archived: "border-zinc-200 bg-zinc-100 text-zinc-700",
+};
+
 const topicStatusConfig: Record<
   StudyTopicCoverageItem["status"],
   { label: string; className: string; barClassName: string }
@@ -84,6 +94,11 @@ const topicStatusConfig: Record<
     className: "border-zinc-200 bg-zinc-50 text-zinc-500",
     barClassName: "bg-zinc-300",
   },
+  "pending-analysis": {
+    label: "Pending analysis",
+    className: "border-sky-100 bg-sky-50 text-sky-700",
+    barClassName: "bg-sky-300",
+  },
 };
 
 const emotionalSignalConfig: Record<
@@ -104,8 +119,8 @@ const emotionalSignalConfig: Record<
   },
   low: {
     label: "Low",
-    className: "text-emerald-600",
-    dotClassName: "bg-emerald-500",
+    className: "text-zinc-500",
+    dotClassName: "bg-zinc-400",
     activeDots: 1,
   },
 };
@@ -214,7 +229,7 @@ function MetricCard({ metric }: { metric: StudyMetricCard }) {
           <p className="text-[13px] text-zinc-500">{metric.subtitle}</p>
         </div>
 
-        {metric.progress ? (
+        {metric.progress !== undefined ? (
           <div className="mt-5 flex items-center gap-3">
             <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-100">
               <div
@@ -288,8 +303,10 @@ function SessionSignal({ signal }: { signal: StudySessionItem["emotionalSignal"]
 }
 
 function SessionActionButton({
+  studyId,
   session,
 }: {
+  studyId: string;
   session: StudySessionItem;
 }) {
   const className = cn(
@@ -297,17 +314,18 @@ function SessionActionButton({
     "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
   );
 
-  if (session.state === "completed") {
+  if (session.state === "completed" && session.debriefStatus === "ready") {
     return (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled
-        className={className}
+      <Link
+        href={`/studies/${studyId}/interviews/${session.id}/debrief`}
+        className={buttonVariants({
+          variant: "outline",
+          size: "sm",
+          className,
+        })}
       >
         {session.actionLabel}
-      </Button>
+      </Link>
     );
   }
 
@@ -342,6 +360,16 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
       router.push(`/interviews/${invite.inviteCode}`);
     },
   });
+  const endStudyMutation = useMutation({
+    mutationFn: () => browserApiClient.studies.end(initialStudy.studyId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["studies"] }),
+        queryClient.invalidateQueries({ queryKey: ["study-detail", initialStudy.studyId] }),
+      ]);
+      setError(null);
+    },
+  });
   const [error, setError] = useState<string | null>(null);
   const study = studyQuery.data ?? initialStudy;
 
@@ -360,10 +388,15 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
             <div className="min-w-0 flex-1 space-y-4">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="font-heading text-[1.55rem] leading-tight font-semibold tracking-tight text-zinc-950 md:text-[1.8rem] 2xl:max-w-[22ch]">
+                <h1 className="font-heading text-[1.55rem] leading-tight font-semibold tracking-tight text-zinc-950 md:text-[1.8rem]">
                   {study.title}
                 </h1>
-                <Badge className="shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold">
+                <Badge
+                  className={cn(
+                    "shrink-0 rounded-full border px-3 py-1 text-[12px] font-semibold",
+                    studyStatusBadgeClasses[study.status],
+                  )}
+                >
                   {study.statusLabel}
                 </Badge>
               </div>
@@ -416,15 +449,25 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                 {startInterviewMutation.isPending ? "Starting..." : "Start Interview"}
                 <Plus className="size-4" />
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-lg"
-                className="rounded-xl border-zinc-200 bg-white text-zinc-700 shadow-none hover:bg-zinc-50"
-                aria-label="More actions"
-              >
-                <Ellipsis className="size-5" />
-              </Button>
+              {study.canEndStudy ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  disabled={endStudyMutation.isPending}
+                  onClick={() => {
+                    setError(null);
+                    endStudyMutation.mutate(undefined, {
+                      onError: () => {
+                        setError("We could not end the study right now.");
+                      },
+                    });
+                  }}
+                  className="rounded-xl border-amber-200 bg-white px-4 text-sm font-medium text-amber-700 shadow-none hover:bg-amber-50"
+                >
+                  {endStudyMutation.isPending ? "Ending..." : "End Study"}
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -449,16 +492,28 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
               <div className="grid gap-4 px-6 pb-6 sm:px-7 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <div className="rounded-[16px] border border-zinc-200/80 bg-white p-5">
                   <p className="text-[13px] font-semibold text-zinc-950">Emerging Themes</p>
-                  <div className="mt-4 flex flex-wrap gap-2.5">
-                    {study.insightThemes.map((theme) => (
-                      <Badge
-                        key={theme}
-                        className="rounded-xl border-primary/10 bg-primary/8 px-3 py-2 text-[11px] font-medium text-primary"
-                      >
-                        {theme}
-                      </Badge>
-                    ))}
-                  </div>
+                  {study.insightThemes.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2.5">
+                      {study.insightThemes.map((theme) => (
+                        <Badge
+                          key={theme}
+                          className="rounded-xl border-primary/10 bg-primary/8 px-3 py-2 text-[11px] font-medium text-primary"
+                        >
+                          {theme}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-[12px] leading-6 text-zinc-500">
+                      {study.analysis.status === "pending"
+                        ? "Theme synthesis will appear after the queued debriefs finish running."
+                        : study.analysis.status === "partial"
+                          ? "More themes will emerge as the remaining debriefs finish processing."
+                          : study.analysis.status === "failed"
+                            ? "Theme synthesis is unavailable until debrief analysis is retried."
+                            : "Themes will appear once completed interviews have been analyzed."}
+                    </p>
+                  )}
                 </div>
 
                 <div className="rounded-[16px] border border-primary/12 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(238,242,255,0.82))] p-5">
@@ -527,7 +582,10 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <SessionActionButton session={session} />
+                          <SessionActionButton
+                            studyId={study.studyId}
+                            session={session}
+                          />
                         </div>
                       </div>
                     </div>
@@ -583,7 +641,10 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                             </div>
                           </td>
                           <td className="px-3 py-3.5 sm:px-4">
-                            <SessionActionButton session={session} />
+                            <SessionActionButton
+                              studyId={study.studyId}
+                              session={session}
+                            />
                           </td>
                         </tr>
                       );
@@ -608,6 +669,12 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                   <span className="text-center">Status</span>
                   <span>Evidence</span>
                 </div>
+
+                {study.analysis.status === "pending" ? (
+                  <p className="pt-3 text-[12px] leading-5 text-zinc-500">
+                    Topic coverage will populate after the queued debriefs finish analyzing the completed interviews.
+                  </p>
+                ) : null}
 
                 <div className="divide-y divide-zinc-200/80">
                   {study.topicCoverage.map((item) => {

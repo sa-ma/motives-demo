@@ -5,15 +5,12 @@ import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { DurationSelector } from "@/components/studies/duration-selector";
 import { FieldLayout } from "@/components/studies/study-field";
 import { TopicChipList } from "@/components/studies/topic-chip-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { browserApiClient } from "@/lib/api/client";
-
-const durationOptions = ["5 min", "10 min", "15 min", "20 min", "Custom"];
 
 const initialTopics = [
   "Onboarding experience",
@@ -37,11 +34,6 @@ const maxLengths = {
   topics: 200,
 };
 
-function parseDurationMinutes(value: string) {
-  const match = value.match(/\d+/);
-  return match ? Number(match[0]) : 10;
-}
-
 export function StudyForm() {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -50,24 +42,21 @@ export function StudyForm() {
   const [audience, setAudience] = useState(studyCopy.audience);
   const [context, setContext] = useState(studyCopy.context);
   const [topics, setTopics] = useState(initialTopics);
-  const [duration, setDuration] = useState("10 min");
+  const [targetParticipants, setTargetParticipants] = useState("5");
   const [error, setError] = useState<string | null>(null);
   const createStudyMutation = useMutation({
-    mutationFn: async () => {
-      const createdStudy = await browserApiClient.studies.create({
+    mutationFn: async () =>
+      browserApiClient.studies.create({
         audience: audience.trim(),
         context: context.trim(),
-        durationMinutes: parseDurationMinutes(duration),
         objective: objective.trim(),
+        targetParticipants: Number(targetParticipants),
         title: title.trim(),
         topics,
-      });
-      await browserApiClient.plans.generate(createdStudy.studyId);
-      return createdStudy;
-    },
-    onSuccess: async (createdStudy) => {
-      await queryClient.invalidateQueries({ queryKey: ["studies"] });
-      router.push(`/studies/${createdStudy.studyId}/plan`);
+      }),
+    onSuccess: (createdStudy) => {
+      void queryClient.invalidateQueries({ queryKey: ["studies"] });
+      router.push(`/studies/${createdStudy.studyId}/plan?generate=1`);
     },
   });
 
@@ -154,14 +143,24 @@ export function StudyForm() {
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-[12px] font-semibold text-black">
-          Interview Length
-        </p>
-        <DurationSelector
-          options={durationOptions}
-          value={duration}
-          onChange={setDuration}
+        <label
+          htmlFor="target-participants"
+          className="block text-[12px] font-semibold text-black"
+        >
+          Target Participants
+        </label>
+        <Input
+          id="target-participants"
+          type="number"
+          min={1}
+          max={50}
+          inputMode="numeric"
+          value={targetParticipants}
+          onChange={(event) => setTargetParticipants(event.target.value)}
         />
+        <p className="text-[12px] leading-5 text-zinc-500">
+          Choose how many participant interviews you want to complete for this study.
+        </p>
       </div>
 
       {error ? (
@@ -187,6 +186,17 @@ export function StudyForm() {
             return;
           }
 
+          const parsedTargetParticipants = Number(targetParticipants);
+
+          if (
+            !Number.isInteger(parsedTargetParticipants) ||
+            parsedTargetParticipants < 1 ||
+            parsedTargetParticipants > 50
+          ) {
+            setError("Choose a target participant count between 1 and 50.");
+            return;
+          }
+
           createStudyMutation.mutate(undefined, {
             onError: () => {
               setError("We couldn't create the study right now. Please try again.");
@@ -196,7 +206,7 @@ export function StudyForm() {
         className="h-14 w-full rounded-md bg-primary text-[15px] font-semibold text-white shadow-[0_24px_48px_-24px_rgba(29,78,216,0.55)] hover:bg-primary/90"
       >
         <Sparkles className="size-4" />
-        {createStudyMutation.isPending ? "Generating..." : "Generate Interview Plan"}
+        {createStudyMutation.isPending ? "Creating study..." : "Generate Interview Plan"}
       </Button>
     </form>
   );

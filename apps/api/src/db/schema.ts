@@ -9,7 +9,11 @@ import type {
   ParticipantIntakeField,
   ParticipantResponses,
 } from "@motives-ai/contracts/public-interviews";
-import type { StudyStatus } from "@motives-ai/contracts/studies";
+import type {
+  SessionDebrief,
+  StudyStatus,
+  StudyTopicCoverageItem,
+} from "@motives-ai/contracts/studies";
 import {
   boolean,
   index,
@@ -28,6 +32,7 @@ export const studyStatusEnum = pgEnum("study_status", [
   "interviewing",
   "analyzing",
   "completed",
+  "archived",
 ]);
 
 export const planKindEnum = pgEnum("plan_kind", ["draft", "approved"]);
@@ -50,6 +55,19 @@ export const participantFieldTypeEnum = pgEnum("participant_field_type", [
 
 export const transcriptRoleEnum = pgEnum("transcript_role", ["assistant", "user"]);
 
+export const analysisJobKindEnum = pgEnum("analysis_job_kind", [
+  "session-debrief",
+  "study-aggregate",
+]);
+
+export const analysisJobStatusEnum = pgEnum("analysis_job_status", [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
 export const study = pgTable(
   "study",
   {
@@ -61,7 +79,7 @@ export const study = pgTable(
     context: text("context").notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
     status: studyStatusEnum("status").$type<StudyStatus>().notNull(),
-    interviewsTarget: integer("interviews_target").notNull().default(10),
+    interviewsTarget: integer("interviews_target").notNull(),
     createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull(),
   },
@@ -116,9 +134,15 @@ export const studyAggregate = pgTable("study_aggregate", {
     .primaryKey()
     .references(() => study.id, { onDelete: "cascade" }),
   coverage: integer("coverage").notNull().default(0),
+  contradictionCount: integer("contradiction_count").notNull().default(0),
+  completedSessionCount: integer("completed_session_count").notNull().default(0),
   signalCount: integer("signal_count").notNull().default(0),
   themes: jsonb("themes").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   hiddenThemesCount: integer("hidden_themes_count").notNull().default(0),
+  topicCoverage: jsonb("topic_coverage")
+    .$type<StudyTopicCoverageItem[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   observation: text("observation").notNull(),
   updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull(),
 });
@@ -264,6 +288,63 @@ export const sessionAnnotation = pgTable(
   }),
 );
 
+export const debriefReport = pgTable(
+  "debrief_report",
+  {
+    sessionId: text("session_id")
+      .primaryKey()
+      .references(() => interviewSession.id, { onDelete: "cascade" }),
+    studyId: text("study_id")
+      .notNull()
+      .references(() => study.id, { onDelete: "cascade" }),
+    emotionSignal: text("emotion_signal").$type<"low" | "medium" | "high">().notNull(),
+    contradictions: jsonb("contradictions").$type<string[]>().notNull(),
+    content: jsonb("content").$type<SessionDebrief>().notNull(),
+    model: text("model").notNull(),
+    providerResponseId: text("provider_response_id"),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    studyIdx: index("idx_debrief_report_study").on(table.studyId, table.updatedAt),
+  }),
+);
+
+export const analysisJob = pgTable(
+  "analysis_job",
+  {
+    id: text("id").primaryKey(),
+    kind: analysisJobKindEnum("kind")
+      .$type<"session-debrief" | "study-aggregate">()
+      .notNull(),
+    status: analysisJobStatusEnum("status")
+      .$type<"queued" | "running" | "completed" | "failed" | "cancelled">()
+      .notNull(),
+    studyId: text("study_id")
+      .notNull()
+      .references(() => study.id, { onDelete: "cascade" }),
+    sessionId: text("session_id").references(() => interviewSession.id, {
+      onDelete: "cascade",
+    }),
+    payload: jsonb("payload").$type<Record<string, string>>().notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lockedAt: timestamp("locked_at", { mode: "string", withTimezone: true }),
+    scheduledAt: timestamp("scheduled_at", { mode: "string", withTimezone: true }).notNull(),
+    error: text("error"),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    statusScheduleIdx: index("idx_analysis_job_status_scheduled").on(
+      table.status,
+      table.scheduledAt,
+      table.createdAt,
+    ),
+    sessionKindIdx: index("idx_analysis_job_session_kind").on(table.sessionId, table.kind),
+    studyKindIdx: index("idx_analysis_job_study_kind").on(table.studyId, table.kind),
+  }),
+);
+
 export type StudyRow = typeof study.$inferSelect;
 export type StudyTopicRow = typeof studyTopic.$inferSelect;
 export type StudyPlanVersionRow = typeof studyPlanVersion.$inferSelect;
@@ -274,5 +355,7 @@ export type InterviewInviteRow = typeof interviewInvite.$inferSelect;
 export type ParticipantProfileRow = typeof participantProfile.$inferSelect;
 export type TranscriptTurnRow = typeof transcriptTurn.$inferSelect;
 export type SessionAnnotationRow = typeof sessionAnnotation.$inferSelect;
+export type DebriefReportRow = typeof debriefReport.$inferSelect;
+export type AnalysisJobRow = typeof analysisJob.$inferSelect;
 
 export type StoredInterviewBehaviorId = InterviewBehaviorId;

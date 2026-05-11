@@ -499,7 +499,7 @@ export function EditTopicsDialog({
           >
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {draft.mustCoverAreas.map((area) => (
+                {draft.mustCoverAreas.map((area: string) => (
                   <EditableChip
                     key={area}
                     label={area}
@@ -507,7 +507,7 @@ export function EditTopicsDialog({
                       setDraft((current) => ({
                         ...current,
                         mustCoverAreas: current.mustCoverAreas.filter(
-                          (currentArea) => currentArea !== area,
+                          (currentArea: string) => currentArea !== area,
                         ),
                       }))
                     }
@@ -553,7 +553,7 @@ export function EditTopicsDialog({
           >
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {draft.thingsToAvoid.map((item) => (
+                {draft.thingsToAvoid.map((item: string) => (
                   <EditableChip
                     key={item}
                     label={item}
@@ -561,7 +561,7 @@ export function EditTopicsDialog({
                       setDraft((current) => ({
                         ...current,
                         thingsToAvoid: current.thingsToAvoid.filter(
-                          (currentItem) => currentItem !== item,
+                          (currentItem: string) => currentItem !== item,
                         ),
                       }))
                     }

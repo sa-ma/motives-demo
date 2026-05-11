@@ -5,6 +5,7 @@ import sensible from "@fastify/sensible";
 import { ApiError } from "./lib/errors.js";
 import { loadApiEnv } from "./lib/env.js";
 import type { InterviewAiService } from "./ai/service.js";
+import type { ResearchAiService } from "./ai/research-service.js";
 import { aiPlugin } from "./plugins/ai.js";
 import { databasePlugin } from "./plugins/database.js";
 import { healthRoutes } from "./routes/health.js";
@@ -17,6 +18,7 @@ type BuildAppOptions = {
   appBaseUrl?: string;
   databaseUrl?: string;
   interviewAiService?: InterviewAiService;
+  researchAiService?: ResearchAiService;
 };
 
 function isHttpError(
@@ -79,6 +81,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
   app.register(aiPlugin, {
     interviewAiService: options.interviewAiService,
+    researchAiService: options.researchAiService,
   });
   app.register(healthRoutes, { prefix: "/health" });
   app.register(studiesRoutes, { prefix: "/v1/studies" });

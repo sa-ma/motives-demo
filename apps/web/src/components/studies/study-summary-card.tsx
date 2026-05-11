@@ -1,9 +1,9 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Activity, ArrowRight, Copy, Ellipsis, Sparkles, UsersRound } from "lucide-react";
+import { Activity, Archive, ArrowRight, Copy, Ellipsis, Sparkles, UsersRound } from "lucide-react";
 
 import type { StudySummary as StudySummaryCardModel } from "@motives-ai/contracts";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { browserApiClient } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 const accentClasses = {
@@ -41,15 +43,15 @@ const accentClasses = {
     cta: "min-w-[174px] justify-center border border-blue-300 bg-white text-primary ring-1 ring-inset ring-blue-200 hover:border-blue-300 hover:bg-sky-50 hover:text-sky-700",
   },
   analyzing: {
-    interviewsIcon: "text-amber-600",
+    interviewsIcon: "text-violet-600",
     buttonVariant: "outline",
-    status: "bg-amber-50 text-amber-700 border-amber-100",
-    progress: "bg-[linear-gradient(90deg,#f59e0b,#f97316)]",
+    status: "bg-violet-50 text-violet-700 border-violet-100",
+    progress: "bg-[linear-gradient(90deg,#a78bfa,#8b5cf6)]",
     surface:
-      "border-amber-100/80 bg-[linear-gradient(180deg,rgba(255,247,237,0.92),rgba(255,251,245,0.94))] text-amber-800",
-    chip: "bg-amber-50 text-amber-700 border-amber-100",
-    signal: "bg-amber-50 text-amber-700",
-    cta: "min-w-[174px] justify-center border border-orange-300 bg-white text-orange-600 ring-1 ring-inset ring-orange-200 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700",
+      "border-violet-100/80 bg-[linear-gradient(180deg,rgba(245,243,255,0.92),rgba(250,248,255,0.94))] text-violet-800",
+    chip: "bg-violet-50 text-violet-700 border-violet-100",
+    signal: "bg-violet-50 text-violet-700",
+    cta: "min-w-[174px] justify-center border border-violet-300 bg-white text-violet-700 ring-1 ring-inset ring-violet-200 hover:border-violet-300 hover:bg-violet-50/60 hover:text-violet-800",
   },
   completed: {
     interviewsIcon: "text-emerald-600",
@@ -61,6 +63,17 @@ const accentClasses = {
     chip: "bg-emerald-50 text-emerald-700 border-emerald-100",
     signal: "bg-emerald-50 text-emerald-700",
     cta: "min-w-[174px] justify-center border border-emerald-300 bg-white text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/60 hover:text-emerald-800",
+  },
+  archived: {
+    interviewsIcon: "text-zinc-500",
+    buttonVariant: "outline",
+    status: "bg-zinc-100 text-zinc-700 border-zinc-200",
+    progress: "bg-[linear-gradient(90deg,#a1a1aa,#71717a)]",
+    surface:
+      "border-zinc-200/80 bg-[linear-gradient(180deg,rgba(244,244,245,0.92),rgba(250,250,250,0.94))] text-zinc-700",
+    chip: "bg-zinc-100 text-zinc-700 border-zinc-200",
+    signal: "bg-zinc-100 text-zinc-600",
+    cta: "min-w-[174px] justify-center border border-zinc-300 bg-white text-zinc-700 ring-1 ring-inset ring-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-800",
   },
 } as const;
 
@@ -88,10 +101,28 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
     study.accent === "planning"
       ? `/studies/${study.id}/plan`
       : `/studies/${study.id}`;
+  const primaryActionLabel =
+    study.actionLabel === "Continue Study" ? "View Study" : study.actionLabel;
   const [actionMessage, setActionMessage] = useState<{
     text: string;
     tone: "default" | "error" | "success";
   } | null>(null);
+  const archiveStudyMutation = useMutation({
+    mutationFn: () => browserApiClient.studies.archive(study.id),
+    onSuccess: async () => {
+      setActionMessage({
+        text: "Study archived",
+        tone: "success",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["studies"] });
+    },
+    onError: () => {
+      setActionMessage({
+        text: "Could not archive study",
+        tone: "error",
+      });
+    },
+  });
 
   useEffect(() => {
     if (!actionMessage) {
@@ -136,7 +167,7 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
               <p className="text-sm font-semibold text-zinc-900">
                 {study.interviewsCompleted} / {study.interviewsTarget}
               </p>
-              <p className="text-[13px]">Interviews</p>
+              <p className="text-[13px]">Participants</p>
             </div>
           </div>
         </div>
@@ -176,31 +207,37 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
 
         <div className="space-y-3">
           <p className="text-[14px] font-medium text-zinc-700">{study.themeLabel}</p>
-          <div className="flex flex-wrap gap-2">
-            {study.themes.map((theme) => (
-              <Badge
-                key={theme}
-                variant="secondary"
-                className={cn(
-                  "rounded-lg border px-2.5 py-1 text-[12px] font-medium",
-                  accent.chip,
-                )}
-              >
-                {theme}
-              </Badge>
-            ))}
-            {study.hiddenThemesCount ? (
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "rounded-lg border px-2.5 py-1 text-[12px] font-medium",
-                  accent.chip,
-                )}
-              >
-                +{study.hiddenThemesCount}
-              </Badge>
-            ) : null}
-          </div>
+          {study.themes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {study.themes.map((theme) => (
+                <Badge
+                  key={theme}
+                  variant="secondary"
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium",
+                    accent.chip,
+                  )}
+                >
+                  {theme}
+                </Badge>
+              ))}
+              {study.hiddenThemesCount ? (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[12px] font-medium",
+                    accent.chip,
+                  )}
+                >
+                  +{study.hiddenThemesCount}
+                </Badge>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-[13px] leading-6 text-zinc-500">
+              Completed interviews are waiting for debrief analysis.
+            </p>
+          )}
         </div>
 
         <div className={cn("rounded-2xl border p-4", accent.surface)}>
@@ -232,13 +269,13 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
             {primaryActionHref ? (
               <Link
                 href={primaryActionHref}
-                    className={buttonVariants({
+                className={buttonVariants({
                   variant: accent.buttonVariant,
                   size: "lg",
                   className: cn("rounded-xl px-4 shadow-none", accent.cta),
                 })}
               >
-                {study.actionLabel}
+                {primaryActionLabel}
                 <ArrowRight className="size-4" />
               </Link>
             ) : (
@@ -250,7 +287,7 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
                   className: cn("rounded-xl px-4 shadow-none", accent.cta),
                 })}
               >
-                {study.actionLabel}
+                {primaryActionLabel}
                 <ArrowRight className="size-4" />
               </button>
             )}
@@ -293,6 +330,23 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
                   <span className="flex items-center gap-2">
                     <Copy className="size-4 text-zinc-400" />
                     {study.latestInviteUrl ? "Copy invite link" : "No invite link yet"}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={!study.canArchiveStudy || archiveStudyMutation.isPending}
+                  onClick={() => {
+                    if (!study.canArchiveStudy || archiveStudyMutation.isPending) {
+                      return;
+                    }
+
+                    archiveStudyMutation.mutate();
+                  }}
+                  className="text-rose-700 data-[highlighted]:bg-rose-50 data-[highlighted]:text-rose-800"
+                >
+                  <span className="flex items-center gap-2">
+                    <Archive className="size-4 text-rose-500" />
+                    {archiveStudyMutation.isPending ? "Archiving study..." : "Archive study"}
                   </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

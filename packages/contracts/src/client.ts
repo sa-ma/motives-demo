@@ -14,9 +14,12 @@ import type {
   PublicInterviewRouteState,
 } from "./public-interviews.js";
 import type {
+  ArchiveStudyResponse,
   CreateStudyInput,
   CreateStudyResponse,
+  EndStudyResponse,
   ListStudiesQuery,
+  SessionDebriefResponse,
   StudyDetail,
   StudySummary,
 } from "./studies.js";
@@ -121,6 +124,23 @@ export function createApiClient(options: {
       },
       detail(studyId: string) {
         return request<StudyDetail>(`/v1/studies/${studyId}`);
+      },
+      end(studyId: string) {
+        return request<EndStudyResponse>(`/v1/studies/${studyId}/end`, {
+          body: {},
+          method: "POST",
+        });
+      },
+      archive(studyId: string) {
+        return request<ArchiveStudyResponse>(`/v1/studies/${studyId}/archive`, {
+          body: {},
+          method: "POST",
+        });
+      },
+      debrief(studyId: string, sessionId: string) {
+        return request<SessionDebriefResponse>(
+          `/v1/studies/${studyId}/interviews/${sessionId}/debrief`,
+        );
       },
     },
     plans: {

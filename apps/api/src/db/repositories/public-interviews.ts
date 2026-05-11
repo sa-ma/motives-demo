@@ -109,6 +109,16 @@ export async function findLatestSessionAnnotation(
   });
 }
 
+export async function listSessionAnnotations(
+  db: DatabaseExecutor,
+  sessionId: string,
+) {
+  return db.query.sessionAnnotation.findMany({
+    orderBy: [asc(sessionAnnotation.createdAt)],
+    where: eq(sessionAnnotation.sessionId, sessionId),
+  });
+}
+
 export async function findAnnotationByAssistantTurnId(
   db: DatabaseExecutor,
   assistantTurnId: string,
