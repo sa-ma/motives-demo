@@ -113,7 +113,7 @@ const studiesRoutesPlugin: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const { studyId } = request.params;
-      return await getStudyDetail(app.db, studyId);
+      return await getStudyDetail(app.db, app.appBaseUrl, studyId);
     },
   );
 

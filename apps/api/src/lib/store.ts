@@ -52,6 +52,7 @@ import {
   createInviteCode,
   createParticipantProfile,
   findLatestActiveInviteForStudy,
+  listLatestActiveInvitesForSessions,
   findInviteWithSession,
   findParticipantProfileBySessionId,
   findSessionById,
@@ -273,6 +274,7 @@ function ensureStudyPlanIsValid(plan: StudyPlan, action: string) {
       throw new ApiError(
         409,
         `The current study plan is invalid and cannot ${action}. Regenerate the plan and try again.`,
+        "STUDY_PLAN_INVALID",
       );
     }
 
@@ -379,6 +381,7 @@ function ensureStudyNotEnded(
     throw new ApiError(
       409,
       `This study has been ${study.status === "archived" ? "archived" : "ended"} and can no longer ${actionLabel}.`,
+      study.status === "archived" ? "STUDY_ARCHIVED" : "STUDY_COMPLETED",
     );
   }
 }
@@ -465,7 +468,7 @@ async function refreshStudyStatus(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   if (study.status === "completed") {
@@ -490,7 +493,7 @@ async function refreshStudyAggregate(db: DatabaseExecutor, studyId: string) {
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   const [aggregate, counts, approvedPlan, draftPlan, debriefs] = await Promise.all([
@@ -715,6 +718,7 @@ async function getSessionDebriefResponse(
 
 async function buildSessionItems(
   db: DatabaseExecutor,
+  appBaseUrl: string,
   studyId: string,
   sessions: Awaited<ReturnType<typeof listSessionsForStudy>>,
   topicLabels: string[],
@@ -726,15 +730,26 @@ async function buildSessionItems(
     sessionIds,
     studyId,
   });
+  const activeInvites = await listLatestActiveInvitesForSessions(db, {
+    now: nowIso(),
+    sessionIds,
+  });
 
   const debriefBySessionId = new Map(
     debriefReports.map((report) => [report.sessionId, report]),
   );
   const latestJobBySessionId = new Map<string, (typeof latestJobs)[number]>();
+  const activeInviteBySessionId = new Map<string, (typeof activeInvites)[number]>();
 
   for (const job of latestJobs) {
     if (job.sessionId && !latestJobBySessionId.has(job.sessionId)) {
       latestJobBySessionId.set(job.sessionId, job);
+    }
+  }
+
+  for (const invite of activeInvites) {
+    if (!activeInviteBySessionId.has(invite.sessionId)) {
+      activeInviteBySessionId.set(invite.sessionId, invite);
     }
   }
 
@@ -800,6 +815,7 @@ async function buildSessionItems(
       debriefState?.status === "ready"
         ? debriefReport?.contradictions.length ?? 0
         : latestAnnotation?.contradictions.length ?? 0;
+    const activeInvite = activeInviteBySessionId.get(session.id);
     const debriefStatus = isComplete
       ? debriefState?.status ?? "pending"
       : "unavailable";
@@ -810,14 +826,25 @@ async function buildSessionItems(
           ? "Debrief Failed"
           : debriefStatus === "pending"
             ? "Debrief Pending"
-            : "Participant In Progress";
+            : session.sessionStatus === "welcome"
+              ? "Invite Created"
+              : session.sessionStatus === "room"
+                ? "Interview Live"
+                : "Participant Started";
+    const stateLabel = isComplete
+      ? "Completed"
+      : session.sessionStatus === "welcome"
+        ? "Invite Created"
+        : session.sessionStatus === "room"
+          ? "Interview Live"
+          : "Participant Started";
 
     return {
       id: session.id,
       participantLabel,
       participantInitials: `P${session.participantNumber}`,
       state: isComplete ? "completed" : "in-progress",
-      stateLabel: isComplete ? "Completed" : "In Progress",
+      stateLabel,
       timingLabel:
         isComplete && session.completedAt
           ? toRelativeLabel(session.completedAt, "").replace(/^ /, "")
@@ -830,6 +857,9 @@ async function buildSessionItems(
       actionTone: "outline",
       debriefError: debriefState?.status === "failed" ? debriefState.error : undefined,
       debriefStatus,
+      inviteUrl: session.sessionStatus === "welcome" && activeInvite
+        ? `${appBaseUrl.replace(/\/$/, "")}/interviews/${activeInvite.inviteCode}`
+        : undefined,
     };
   });
 }
@@ -887,7 +917,7 @@ function buildRecentActivity(
           {
             id: `room-${session.id}`,
             type: "session-start",
-            title: `${participantLabel} interview started`,
+            title: `${participantLabel} joined the interview`,
             timestamp: toRelativeLabel(session.updatedAt, "").replace(/^ /, ""),
           },
         ];
@@ -901,7 +931,7 @@ function buildRecentActivity(
           {
             id: `details-${session.id}`,
             type: "session-start",
-            title: `${participantLabel} accepted the invite`,
+            title: `${participantLabel} opened the invite`,
             timestamp: toRelativeLabel(session.updatedAt, "").replace(/^ /, ""),
           },
         ];
@@ -920,13 +950,13 @@ async function getInviteRoutePayload(
   const study = await findStudyById(db, invite.studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   const approvedPlan = await findCurrentApprovedPlan(db, study.id);
 
   if (!approvedPlan) {
-    throw new ApiError(409, "Approved plan not found for invite.");
+    throw new ApiError(409, "Approved plan not found for invite.", "APPROVED_PLAN_NOT_FOUND");
   }
 
   return {
@@ -1020,7 +1050,7 @@ export async function createStudy(
   const topics = normalizeTopics(input.topics);
 
   if (topics.length === 0) {
-    throw new ApiError(400, "At least one study topic is required.");
+    throw new ApiError(400, "At least one study topic is required.", "STUDY_TOPICS_REQUIRED");
   }
 
   const studyId = await createUniqueStudyId(db, input.title);
@@ -1073,7 +1103,7 @@ export async function createStudy(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(500, "Failed to create study.");
+    throw new ApiError(500, "Failed to create study.", "STUDY_CREATE_FAILED");
   }
 
   return {
@@ -1093,12 +1123,13 @@ export async function listStudies(
 
 export async function getStudyDetail(
   db: AppDatabase,
+  appBaseUrl: string,
   studyId: string,
 ): Promise<StudyDetail> {
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   const [aggregate, approvedPlan, draftPlan, sessions, counts, debriefs] =
@@ -1120,7 +1151,7 @@ export async function getStudyDetail(
       counts,
       topics,
     }),
-    buildSessionItems(db, studyId, sessions, topics, debriefs),
+    buildSessionItems(db, appBaseUrl, studyId, sessions, topics, debriefs),
   ]);
   const recentActivity = buildRecentActivity(sessions, debriefs);
   const analysis = summarizeStudyAnalysis(sessionsForDetail);
@@ -1283,7 +1314,7 @@ export async function getStudyPlan(
   const plan = await findCurrentPlan(db, studyId);
 
   if (!plan) {
-    throw new ApiError(404, "Study plan not found.");
+    throw new ApiError(404, "Study plan not found.", "STUDY_PLAN_NOT_FOUND");
   }
 
   return plan;
@@ -1297,7 +1328,7 @@ export async function generateStudyPlan(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   ensureStudyNotEnded(study, "generate a new plan");
@@ -1317,6 +1348,7 @@ export async function generateStudyPlan(
       throw new ApiError(
         502,
         "We could not generate a reliable interview plan right now.",
+        "STUDY_PLAN_GENERATION_FAILED",
       );
     }
 
@@ -1324,7 +1356,7 @@ export async function generateStudyPlan(
   }
 
   if (!validatedPlanOutput) {
-    throw new ApiError(502, "We could not generate a reliable interview plan right now.");
+    throw new ApiError(502, "We could not generate a reliable interview plan right now.", "STUDY_PLAN_GENERATION_FAILED");
   }
 
   const plan = buildStudyPlan(study, {
@@ -1358,7 +1390,7 @@ export async function updateStudyPlan(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   ensureStudyNotEnded(study, "be edited");
@@ -1366,7 +1398,7 @@ export async function updateStudyPlan(
   const draftRow = await findCurrentPlanVersion(db, studyId, "draft");
 
   if (!draftRow) {
-    throw new ApiError(409, "A draft plan must exist before it can be edited.");
+    throw new ApiError(409, "A draft plan must exist before it can be edited.", "DRAFT_PLAN_REQUIRED");
   }
 
   const existingPlan = hydrateStudyPlanDerivedFields(draftRow.content);
@@ -1397,7 +1429,7 @@ export async function approveStudyPlan(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   ensureStudyNotEnded(study, "approve a plan");
@@ -1405,7 +1437,7 @@ export async function approveStudyPlan(
   const draftRow = await findCurrentPlanVersion(db, studyId, "draft");
 
   if (!draftRow) {
-    throw new ApiError(409, "A draft plan is required before approval.");
+    throw new ApiError(409, "A draft plan is required before approval.", "DRAFT_PLAN_REQUIRED");
   }
 
   const draftPlan = hydrateStudyPlanDerivedFields(draftRow.content);
@@ -1442,7 +1474,7 @@ export async function createStudyInvite(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   ensureStudyNotEnded(study, "create new invites");
@@ -1450,7 +1482,7 @@ export async function createStudyInvite(
   const approvedPlan = await findCurrentApprovedPlan(db, studyId);
 
   if (!approvedPlan) {
-    throw new ApiError(409, "An approved plan is required before creating an invite.");
+    throw new ApiError(409, "An approved plan is required before creating an invite.", "APPROVED_PLAN_REQUIRED");
   }
 
   ensureStudyPlanIsValid(approvedPlan, "be used to create an invite");
@@ -1463,7 +1495,13 @@ export async function createStudyInvite(
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   await db.transaction(async (tx) => {
-    const participantNumber = (await countSessions(tx, studyId)).total + 1;
+    const counts = await countSessions(tx, studyId);
+
+    if (counts.total >= study.interviewsTarget) {
+      throw new ApiError(409, "Participant target reached. Increase the target to create more invites.", "PARTICIPANT_TARGET_REACHED");
+    }
+
+    const participantNumber = counts.total + 1;
 
     await createInterviewSession(tx, {
       id: sessionId,
@@ -1586,7 +1624,7 @@ export async function getStudySessionDebrief(
   ]);
 
   if (!study || !session || session.studyId !== studyId) {
-    throw new ApiError(404, "Interview session not found.");
+    throw new ApiError(404, "Interview session not found.", "INTERVIEW_SESSION_NOT_FOUND");
   }
 
   if (session.sessionStatus !== "complete") {
@@ -1615,7 +1653,7 @@ export async function endStudy(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   if (study.status === "completed") {
@@ -1629,7 +1667,7 @@ export async function endStudy(
   const counts = await countSessions(db, studyId);
 
   if (counts.active > 0) {
-    throw new ApiError(409, "All participant sessions must be finished before ending the study.");
+    throw new ApiError(409, "All participant sessions must be finished before ending the study.", "ACTIVE_SESSIONS_PREVENT_END");
   }
 
   const updatedAt = nowIso();
@@ -1655,7 +1693,7 @@ export async function archiveStudy(
   const study = await findStudyById(db, studyId);
 
   if (!study) {
-    throw new ApiError(404, "Study not found.");
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
   if (study.status === "archived") {
@@ -1669,7 +1707,7 @@ export async function archiveStudy(
   const counts = await countSessions(db, studyId);
 
   if (counts.active > 0) {
-    throw new ApiError(409, "All participant sessions must be finished before archiving the study.");
+    throw new ApiError(409, "All participant sessions must be finished before archiving the study.", "ACTIVE_SESSIONS_PREVENT_ARCHIVE");
   }
 
   const updatedAt = nowIso();

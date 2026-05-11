@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 
 import type { DatabaseExecutor } from "../client.js";
 import {
@@ -80,6 +80,27 @@ export async function findLatestActiveInviteForStudy(
       eq(interviewInvite.studyId, studyId),
       isNull(interviewInvite.revokedAt),
       gt(interviewInvite.expiresAt, now),
+    ),
+  });
+}
+
+export async function listLatestActiveInvitesForSessions(
+  db: DatabaseExecutor,
+  options: {
+    now: string;
+    sessionIds: string[];
+  },
+) {
+  if (options.sessionIds.length === 0) {
+    return [];
+  }
+
+  return db.query.interviewInvite.findMany({
+    orderBy: [asc(interviewInvite.sessionId), desc(interviewInvite.createdAt)],
+    where: and(
+      inArray(interviewInvite.sessionId, options.sessionIds),
+      isNull(interviewInvite.revokedAt),
+      gt(interviewInvite.expiresAt, options.now),
     ),
   });
 }

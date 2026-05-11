@@ -101,6 +101,7 @@ export const StudySessionItemSchema = Type.Object({
     Type.Literal("unavailable"),
   ]),
   debriefError: Type.Optional(Type.String()),
+  inviteUrl: Type.Optional(Type.String()),
 });
 
 export type StudySessionItem = Static<typeof StudySessionItemSchema>;

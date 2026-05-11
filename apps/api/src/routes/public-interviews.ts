@@ -120,7 +120,7 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
       const userText = getMessageText(input.message).trim();
 
       if (!userText) {
-        throw new ApiError(400, "A participant message is required.");
+        throw new ApiError(400, "A participant message is required.", "PARTICIPANT_MESSAGE_REQUIRED");
       }
 
       const prepared = await preparePublicInterviewChatTurn(app.db, inviteCode, {

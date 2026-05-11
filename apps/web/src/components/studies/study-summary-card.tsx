@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { ApiError } from "@motives-ai/contracts/client";
 import { Activity, Archive, ArrowRight, Copy, Ellipsis, Sparkles, UsersRound } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
 
 import type { StudySummary as StudySummaryCardModel } from "@motives-ai/contracts";
 import { Badge } from "@/components/ui/badge";
@@ -103,38 +104,37 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
       : `/studies/${study.id}`;
   const primaryActionLabel =
     study.actionLabel === "Continue Study" ? "View Study" : study.actionLabel;
-  const [actionMessage, setActionMessage] = useState<{
-    text: string;
-    tone: "default" | "error" | "success";
-  } | null>(null);
   const archiveStudyMutation = useMutation({
     mutationFn: () => browserApiClient.studies.archive(study.id),
     onSuccess: async () => {
-      setActionMessage({
-        text: "Study archived",
-        tone: "success",
-      });
+      toast.success("Study archived.");
       await queryClient.invalidateQueries({ queryKey: ["studies"] });
     },
     onError: () => {
-      setActionMessage({
-        text: "Could not archive study",
-        tone: "error",
-      });
+      toast.error("We could not archive the study.");
     },
   });
+  const createInviteMutation = useMutation({
+    mutationFn: () => browserApiClient.invites.create(study.id),
+    onSuccess: async (invite) => {
+      try {
+        await copyTextToClipboard(invite.inviteUrl);
+        toast.success("Invite created and copied to clipboard.");
+      } catch {
+        toast.success("Invite created.");
+        toast.message("Copy it from the interview sessions list.");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["studies"] });
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        toast.error(error.message);
+        return;
+      }
 
-  useEffect(() => {
-    if (!actionMessage) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setActionMessage(null);
-    }, 3200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [actionMessage]);
+      toast.error("We could not create the participant invite.");
+    },
+  });
 
   return (
     <Card className="rounded-3xl border-zinc-200/70 bg-white/95 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)]">
@@ -253,18 +253,7 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p
-            className={cn(
-              "text-[14px]",
-              actionMessage?.tone === "success"
-                ? "text-emerald-600"
-                : actionMessage?.tone === "error"
-                  ? "text-rose-600"
-                  : "text-zinc-500",
-            )}
-          >
-            {actionMessage?.text ?? study.updatedLabel}
-          </p>
+          <p className="text-[14px] text-zinc-500">{study.updatedLabel}</p>
           <div className="flex items-center gap-3">
             {primaryActionHref ? (
               <Link
@@ -305,31 +294,18 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem
-                  disabled={!study.latestInviteUrl}
+                  disabled={!study.canStartInterview || createInviteMutation.isPending}
                   onClick={() => {
-                    if (!study.latestInviteUrl) {
+                    if (!study.canStartInterview || createInviteMutation.isPending) {
                       return;
                     }
 
-                    void copyTextToClipboard(study.latestInviteUrl)
-                      .then(async () => {
-                        setActionMessage({
-                          text: "Invite link copied",
-                          tone: "success",
-                        });
-                        await queryClient.invalidateQueries({ queryKey: ["studies"] });
-                      })
-                      .catch(() => {
-                        setActionMessage({
-                          text: "Could not copy invite link",
-                          tone: "error",
-                        });
-                      });
+                    createInviteMutation.mutate();
                   }}
                 >
                   <span className="flex items-center gap-2">
                     <Copy className="size-4 text-zinc-400" />
-                    {study.latestInviteUrl ? "Copy invite link" : "No invite link yet"}
+                    {createInviteMutation.isPending ? "Creating invite..." : "Create invite"}
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

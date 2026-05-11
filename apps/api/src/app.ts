@@ -65,12 +65,44 @@ function buildValidationDetails(error: unknown): HttpErrorDetail[] | undefined {
   });
 }
 
+function defaultErrorCode(statusCode: number) {
+  switch (statusCode) {
+    case 400:
+      return "BAD_REQUEST";
+    case 401:
+      return "UNAUTHORIZED";
+    case 403:
+      return "FORBIDDEN";
+    case 404:
+      return "NOT_FOUND";
+    case 409:
+      return "CONFLICT";
+    case 410:
+      return "GONE";
+    case 422:
+      return "UNPROCESSABLE_ENTITY";
+    case 500:
+      return "INTERNAL_SERVER_ERROR";
+    case 502:
+      return "BAD_GATEWAY";
+    default:
+      return `HTTP_${statusCode}`;
+  }
+}
+
 function buildHttpErrorResponse(error: unknown): HttpErrorResponse {
   const details = buildValidationDetails(error);
   const statusCode =
     details !== undefined ? 400 : isHttpError(error) ? (error.statusCode ?? 500) : 500;
+  const code =
+    details !== undefined
+      ? "VALIDATION_ERROR"
+      : error instanceof ApiError && error.code
+        ? error.code
+        : defaultErrorCode(statusCode);
 
   return {
+    code,
     ...(details ? { details } : {}),
     error: STATUS_CODES[statusCode] ?? "Error",
     message:

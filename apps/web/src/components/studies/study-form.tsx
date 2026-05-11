@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { FieldLayout } from "@/components/studies/study-field";
 import { TopicChipList } from "@/components/studies/topic-chip-list";
@@ -115,7 +116,7 @@ export function StudyForm() {
 
     createStudyMutation.mutate(undefined, {
       onError: () => {
-        setError("We couldn't create the study right now. Please try again.");
+        toast.error("We couldn't create the study right now. Please try again.");
       },
     });
   }

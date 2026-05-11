@@ -1,15 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { ApiError } from "@motives-ai/contracts/client";
 import {
   ArrowLeft,
   CalendarDays,
   CircleAlert,
   CircleCheck,
   Clock3,
+  Copy,
+  Ellipsis,
   ExternalLink,
   Flag,
   MessageSquareMore,
@@ -20,6 +20,8 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
 
 import type {
   StudyActivityItem,
@@ -31,6 +33,12 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { browserApiClient } from "@/lib/api/client";
 import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
 import { cn } from "@/lib/utils";
@@ -204,6 +212,23 @@ function DetailMetadata({
   );
 }
 
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 function MetricCard({ metric }: { metric: StudyMetricCard }) {
   const Icon = metricIcons[metric.tone];
 
@@ -302,49 +327,131 @@ function SessionSignal({ signal }: { signal: StudySessionItem["emotionalSignal"]
   );
 }
 
-function SessionActionButton({
+const debriefStatusBadgeClasses: Record<
+  StudySessionItem["debriefStatus"],
+  { label: string; className: string }
+> = {
+  pending: {
+    label: "Pending",
+    className: "border-sky-100 bg-sky-50 text-sky-700",
+  },
+  ready: {
+    label: "Ready",
+    className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  },
+  failed: {
+    label: "Failed",
+    className: "border-rose-100 bg-rose-50 text-rose-700",
+  },
+  unavailable: {
+    label: "Unavailable",
+    className: "border-zinc-200 bg-zinc-50 text-zinc-500",
+  },
+};
+
+function SessionStatusBadge({ session }: { session: StudySessionItem }) {
+  const className =
+    session.state === "completed"
+      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+      : session.stateLabel === "Interview Live"
+        ? "border-blue-100 bg-blue-50 text-blue-700"
+        : session.stateLabel === "Participant Started"
+          ? "border-amber-100 bg-amber-50 text-amber-700"
+          : "border-zinc-200 bg-zinc-50 text-zinc-600";
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "w-fit rounded-full px-2.5 py-1 text-[10px] font-semibold",
+        className,
+      )}
+    >
+      {session.stateLabel}
+    </Badge>
+  );
+}
+
+function SessionActionsMenu({
   studyId,
   session,
 }: {
   studyId: string;
   session: StudySessionItem;
 }) {
-  const className = cn(
-    "h-8 rounded-lg px-3 text-[12px] shadow-none whitespace-nowrap",
-    "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
-  );
+  const canViewDebrief =
+    session.state === "completed" && session.debriefStatus === "ready";
+  const canCopyInvite = Boolean(session.inviteUrl);
 
-  if (session.state === "completed" && session.debriefStatus === "ready") {
-    return (
-      <Link
-        href={`/studies/${studyId}/interviews/${session.id}/debrief`}
-        className={buttonVariants({
-          variant: "outline",
-          size: "sm",
-          className,
-        })}
-      >
-        {session.actionLabel}
-      </Link>
-    );
+  if (!canViewDebrief && !canCopyInvite) {
+    return null;
   }
 
   return (
-    <Button
-      type="button"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Debrief actions for ${session.participantLabel}`}
+        className={buttonVariants({
+          variant: "outline",
+          size: "icon-sm",
+          className:
+            "h-8 w-8 rounded-lg border-zinc-200 bg-white text-zinc-500 shadow-none hover:bg-zinc-50 hover:text-zinc-700",
+        })}
+      >
+        <Ellipsis className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {canCopyInvite ? (
+          <DropdownMenuItem
+            onClick={() => {
+              void copyTextToClipboard(session.inviteUrl as string)
+                .then(() => {
+                  toast.success("Invite copied to clipboard.");
+                })
+                .catch(() => {
+                  toast.error("We could not copy the invite link.");
+                });
+            }}
+          >
+            Copy Invite
+          </DropdownMenuItem>
+        ) : null}
+        {canViewDebrief ? (
+          <DropdownMenuItem
+            onClick={() => {
+              window.location.href = `/studies/${studyId}/interviews/${session.id}/debrief`;
+            }}
+          >
+            View Debrief
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SessionAnalysisBadge({ session }: { session: StudySessionItem }) {
+  if (session.state !== "completed") {
+    return null;
+  }
+
+  const config = debriefStatusBadgeClasses[session.debriefStatus];
+
+  return (
+    <Badge
       variant="outline"
-      size="sm"
-      disabled
-      className={className}
+      className={cn(
+        "w-fit rounded-full px-2.5 py-1 text-[10px] font-semibold",
+        config.className,
+      )}
     >
-      {session.actionLabel}
-    </Button>
+      {config.label}
+    </Badge>
   );
 }
 
 export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailModel }) {
   const queryClient = useQueryClient();
-  const router = useRouter();
   const studyQuery = useQuery({
     queryKey: ["study-detail", initialStudy.studyId],
     queryFn: () => browserApiClient.studies.detail(initialStudy.studyId),
@@ -353,12 +460,11 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
   });
   const startInterviewMutation = useMutation({
     mutationFn: () => browserApiClient.invites.create(initialStudy.studyId),
-    onSuccess: async (invite) => {
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["studies"] }),
         queryClient.invalidateQueries({ queryKey: ["study-detail", initialStudy.studyId] }),
       ]);
-      router.push(`/interviews/${invite.inviteCode}`);
     },
   });
   const endStudyMutation = useMutation({
@@ -368,10 +474,9 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
         queryClient.invalidateQueries({ queryKey: ["studies"] }),
         queryClient.invalidateQueries({ queryKey: ["study-detail", initialStudy.studyId] }),
       ]);
-      setError(null);
+      toast.success("Study ended.");
     },
   });
-  const [error, setError] = useState<string | null>(null);
   const study = studyQuery.data ?? initialStudy;
 
   return (
@@ -438,16 +543,29 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                 size="lg"
                 disabled={!study.canStartInterview || startInterviewMutation.isPending}
                 onClick={() => {
-                  setError(null);
                   startInterviewMutation.mutate(undefined, {
-                    onError: () => {
-                      setError("Approve the plan before creating an interview invite.");
+                    onSuccess: async (invite) => {
+                      try {
+                        await copyTextToClipboard(invite.inviteUrl);
+                        toast.success("Invite created and copied to clipboard.");
+                      } catch {
+                        toast.success("Invite created.");
+                        toast.message("Copy it from the interview sessions list.");
+                      }
+                    },
+                    onError: (mutationError) => {
+                      if (mutationError instanceof ApiError && mutationError.status === 409) {
+                        toast.error(mutationError.message);
+                        return;
+                      }
+
+                      toast.error("Approve the plan before creating an interview invite.");
                     },
                   });
                 }}
                 className="rounded-xl px-5 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)]"
               >
-                {startInterviewMutation.isPending ? "Starting..." : "Start Interview"}
+                {startInterviewMutation.isPending ? "Creating invite..." : "Create Invite"}
                 <Plus className="size-4" />
               </Button>
               {study.canEndStudy ? (
@@ -457,10 +575,9 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                   size="lg"
                   disabled={endStudyMutation.isPending}
                   onClick={() => {
-                    setError(null);
                     endStudyMutation.mutate(undefined, {
                       onError: () => {
-                        setError("We could not end the study right now.");
+                        toast.error("We could not end the study right now.");
                       },
                     });
                   }}
@@ -472,11 +589,6 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
             </div>
           </div>
 
-          {error ? (
-            <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">
-              {error}
-            </p>
-          ) : null}
         </section>
 
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -543,16 +655,26 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                   return (
                     <div key={session.id} className="px-4 py-3.5 transition-colors sm:px-5">
                       <div className="space-y-3">
-                        <div className="grid content-start gap-1">
-                          <p className="text-[12px] leading-4 font-semibold text-zinc-950">
-                            {session.participantLabel}
-                          </p>
+                        <div className="grid content-start gap-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[12px] leading-4 font-semibold text-zinc-950">
+                              {session.participantLabel}
+                            </p>
+                            <SessionStatusBadge session={session} />
+                          </div>
                           <p className="text-[11px] leading-5 text-zinc-500">
-                            {session.stateLabel} · {session.timingLabel}
+                            {session.timingLabel}
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-x-3">
+                        <div
+                          className={cn(
+                            "gap-x-3",
+                            session.state === "completed"
+                              ? "grid grid-cols-4"
+                              : "grid grid-cols-3",
+                          )}
+                        >
                           <SessionSignal signal={session.emotionalSignal} />
 
                           <div className="grid content-start gap-1">
@@ -580,10 +702,12 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                               {session.contradictionsCount}
                             </p>
                           </div>
+
+                          <SessionAnalysisBadge session={session} />
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <SessionActionButton
+                          <SessionActionsMenu
                             studyId={study.studyId}
                             session={session}
                           />
@@ -596,17 +720,42 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
 
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-t border-zinc-200/80 text-left">
+                      <th className="px-3 py-2 text-[10px] font-medium tracking-[0.08em] text-zinc-400 uppercase sm:px-4">
+                        Participant
+                      </th>
+                      <th className="px-2 py-2 text-[10px] font-medium tracking-[0.08em] text-zinc-400 uppercase">
+                        Emotional Signal
+                      </th>
+                      <th className="px-2 py-2 text-[10px] font-medium tracking-[0.08em] text-zinc-400 uppercase">
+                        Topics Covered
+                      </th>
+                      <th className="px-2 py-2 text-[10px] font-medium tracking-[0.08em] text-zinc-400 uppercase">
+                        Contradictions
+                      </th>
+                      <th className="px-2 py-2 text-[10px] font-medium tracking-[0.08em] text-zinc-400 uppercase">
+                        Analysis
+                      </th>
+                      <th className="px-3 py-2 text-right text-[10px] font-medium tracking-[0.08em] text-zinc-400 uppercase sm:px-4">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {study.sessions.map((session) => {
                       return (
                         <tr key={session.id} className="border-t border-zinc-200/80 align-top">
                           <td className="px-3 py-3.5 sm:px-4">
-                            <div className="grid content-start gap-1">
-                              <p className="text-[12px] leading-4 font-semibold text-zinc-950">
-                                {session.participantLabel}
-                              </p>
+                            <div className="grid content-start gap-2">
+                              <div className="flex items-center gap-2">
+                                <p className="text-[12px] leading-4 font-semibold text-zinc-950">
+                                  {session.participantLabel}
+                                </p>
+                                <SessionStatusBadge session={session} />
+                              </div>
                               <p className="whitespace-nowrap text-[11px] leading-6 text-zinc-500">
-                                {session.stateLabel} · {session.timingLabel}
+                                {session.timingLabel}
                               </p>
                             </div>
                           </td>
@@ -641,11 +790,16 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                               </p>
                             </div>
                           </td>
+                          <td className="px-2 py-3.5">
+                            <SessionAnalysisBadge session={session} />
+                          </td>
                           <td className="px-3 py-3.5 sm:px-4">
-                            <SessionActionButton
-                              studyId={study.studyId}
-                              session={session}
-                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <SessionActionsMenu
+                                studyId={study.studyId}
+                                session={session}
+                              />
+                            </div>
                           </td>
                         </tr>
                       );

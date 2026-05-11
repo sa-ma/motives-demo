@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock3, PenLine, RefreshCcw, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 import type {
   StudyDetail as StudyDetailModel,
@@ -18,6 +19,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { browserApiClient } from "@/lib/api/client";
 import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
 import { cn } from "@/lib/utils";
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
 
 function PlanColumn({
   children,
@@ -379,7 +397,14 @@ export function InterviewPlanPage({
         queryClient.invalidateQueries({ queryKey: ["studies"] }),
         queryClient.invalidateQueries({ queryKey: ["study-detail", studyId] }),
       ]);
-      router.push(`/interviews/${invite.inviteCode}`);
+      try {
+        await copyTextToClipboard(invite.inviteUrl);
+        toast.success("Invite created and copied to clipboard.");
+      } catch {
+        toast.success("Invite created.");
+        toast.message("Copy it from the interview sessions list.");
+      }
+      router.push(`/studies/${studyId}`);
     },
   });
 
@@ -488,10 +513,9 @@ export function InterviewPlanPage({
                   }
                   onClick={() => {
                     setGenerationMode("regenerate");
-                    setError(null);
                     regeneratePlanMutation.mutate(undefined, {
                       onError: () => {
-                        setError(
+                        toast.error(
                           "We couldn't generate a new draft right now. Your current plan was not changed.",
                         );
                       },
@@ -543,11 +567,6 @@ export function InterviewPlanPage({
               </PlanSection>
               <PlanSeparator />
               <section className="px-6 py-5 sm:px-7 sm:py-6">
-                {error ? (
-                  <p className="mb-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">
-                    {error}
-                  </p>
-                ) : null}
                 {regenerationPending && generationMode === "regenerate" ? (
                   <div className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-[13px] text-sky-700">
                     <p className="font-medium text-sky-900">Generating a new draft from your study brief.</p>
@@ -590,10 +609,9 @@ export function InterviewPlanPage({
                       size="lg"
                       disabled={!canApprovePlan || actionButtonsDisabled}
                       onClick={() => {
-                        setError(null);
                         approvePlanMutation.mutate(undefined, {
                           onError: () => {
-                            setError("We could not approve the current plan.");
+                            toast.error("We could not approve the current plan.");
                           },
                         });
                       }}
@@ -607,15 +625,19 @@ export function InterviewPlanPage({
                     size="lg"
                     disabled={!canLaunchInterview || actionButtonsDisabled}
                     onClick={() => {
-                      setError(null);
                       launchInterviewMutation.mutate(
                         { approveFirst: canApproveBeforeStart },
                         {
-                          onError: () => {
-                            setError(
+                          onError: (error) => {
+                            if (error instanceof ApiError && error.status === 409) {
+                              toast.error(error.message);
+                              return;
+                            }
+
+                            toast.error(
                               canStartInterview
-                                ? "We could not start the interview."
-                                : "We could not approve the plan and start the interview.",
+                                ? "We could not create the participant invite."
+                                : "We could not approve the plan and create the participant invite.",
                             );
                           },
                         },
@@ -624,10 +646,10 @@ export function InterviewPlanPage({
                     className="h-12 w-full rounded-xl px-6 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)] hover:bg-primary/90 sm:flex-[1.55]"
                   >
                     {launchInterviewMutation.isPending
-                      ? "Starting interview..."
+                      ? "Creating invite..."
                       : canApproveBeforeStart
-                        ? "Approve & Start Interview"
-                        : "Start Interview"}
+                        ? "Approve & Create Invite"
+                        : "Create Invite"}
                   </Button>
                 </div>
               </section>
@@ -643,13 +665,12 @@ export function InterviewPlanPage({
         onOpenChange={setIsEditTopicsOpen}
         onSave={async (nextPlan) => {
           const mergedPlan = { ...editablePlan, ...nextPlan };
-          setError(null);
 
           try {
             await updatePlanMutation.mutateAsync(mergedPlan);
           } catch {
             const message = "We could not save those plan changes.";
-            setError(message);
+            toast.error(message);
             throw new Error(message);
           }
         }}

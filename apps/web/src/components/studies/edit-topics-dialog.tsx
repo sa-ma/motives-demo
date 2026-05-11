@@ -14,6 +14,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import type { EditableStudyPlanFields } from "@/components/studies/study-plan.types";
 import { Badge } from "@/components/ui/badge";
@@ -681,7 +682,7 @@ export function EditTopicsDialog({
                 });
                 onOpenChange(false);
               } catch (error) {
-                setSaveError(getSaveErrorMessage(error));
+                toast.error(getSaveErrorMessage(error));
               } finally {
                 setIsSaving(false);
               }

@@ -12,6 +12,7 @@ export type HttpErrorDetail = Static<typeof HttpErrorDetailSchema>;
 
 export const HttpErrorSchema = Type.Object(
   {
+    code: Type.String(),
     statusCode: Type.Integer(),
     error: Type.String(),
     message: Type.String(),

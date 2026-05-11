@@ -29,12 +29,14 @@ type FetchLike = typeof fetch;
 export class ApiError extends Error {
   readonly status: number;
   readonly payload: unknown;
+  readonly code?: string;
 
-  constructor(message: string, status: number, payload: unknown) {
+  constructor(message: string, status: number, payload: unknown, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.payload = payload;
+    this.code = code;
   }
 }
 
@@ -68,15 +70,27 @@ export function createApiClient(options: {
     const payload = text ? (JSON.parse(text) as unknown) : null;
 
     if (!response.ok) {
+      const code =
+        typeof payload === "object" &&
+        payload !== null &&
+        "code" in payload &&
+        typeof payload.code === "string"
+          ? payload.code
+          : undefined;
       const message =
         typeof payload === "object" &&
         payload !== null &&
-        "error" in payload &&
-        typeof payload.error === "string"
-          ? payload.error
-          : `Request failed with status ${response.status}`;
+        "message" in payload &&
+        typeof payload.message === "string"
+          ? payload.message
+          : typeof payload === "object" &&
+              payload !== null &&
+              "error" in payload &&
+              typeof payload.error === "string"
+            ? payload.error
+            : `Request failed with status ${response.status}`;
 
-      throw new ApiError(message, response.status, payload);
+      throw new ApiError(message, response.status, payload, code);
     }
 
     return payload as T;
