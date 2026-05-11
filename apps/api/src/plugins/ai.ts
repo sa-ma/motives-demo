@@ -24,10 +24,13 @@ type AiPluginOptions = {
 export const aiPlugin = fp<AiPluginOptions>(async (app, options) => {
   app.decorate(
     "interviewAiService",
-    options.interviewAiService ?? createOpenAiInterviewAiService(),
+    options.interviewAiService ?? createOpenAiInterviewAiService(app.config),
   );
   app.decorate(
     "researchAiService",
-    options.researchAiService ?? createOpenAiResearchAiService(),
+    options.researchAiService ?? createOpenAiResearchAiService(app.config),
   );
+}, {
+  dependencies: ["config"],
+  name: "ai",
 });

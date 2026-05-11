@@ -1,10 +1,9 @@
 import { buildApp } from "./app.js";
+import { loadApiConfig } from "./lib/config.js";
 import { startAnalysisWorker } from "./lib/analysis-worker.js";
 
-const host = process.env.HOST ?? "0.0.0.0";
-const port = Number(process.env.PORT ?? 3001);
-
-const app = buildApp();
+const config = loadApiConfig();
+const app = buildApp({ config });
 let worker: ReturnType<typeof startAnalysisWorker> | null = null;
 
 app.addHook("onClose", async () => {
@@ -15,18 +14,18 @@ const start = async () => {
   try {
     await app.ready();
 
-    if (process.env.RUN_ANALYSIS_WORKER !== "false") {
+    if (config.RUN_ANALYSIS_WORKER) {
       worker = startAnalysisWorker({
         db: app.db,
         logger: app.log,
-        pollIntervalMs: Number(process.env.ANALYSIS_WORKER_POLL_MS ?? 5000),
+        pollIntervalMs: config.ANALYSIS_WORKER_POLL_MS,
         researchAiService: app.researchAiService,
       });
     }
 
-    await app.listen({ host, port });
+    await app.listen({ host: config.HOST, port: config.PORT });
   } catch (error) {
-    app.log.error(error);
+    app.log.error({ err: error }, "failed to start api");
     process.exit(1);
   }
 };

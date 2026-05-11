@@ -1,32 +1,35 @@
+import { STATUS_CODES } from "node:http";
+
 import Fastify from "fastify";
+import type { FastifyError } from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 
 import { ApiError } from "./lib/errors.js";
-import { loadApiEnv } from "./lib/env.js";
 import type { InterviewAiService } from "./ai/service.js";
 import type { ResearchAiService } from "./ai/research-service.js";
+import {
+  loadApiConfig,
+  type ApiConfig,
+} from "./lib/config.js";
 import { aiPlugin } from "./plugins/ai.js";
+import { configPlugin } from "./plugins/config.js";
 import { databasePlugin } from "./plugins/database.js";
 import { healthRoutes } from "./routes/health.js";
 import { publicInterviewsRoutes } from "./routes/public-interviews.js";
 import { studiesRoutes } from "./routes/studies.js";
-
-loadApiEnv();
+import type { HttpErrorDetail, HttpErrorResponse } from "./schemas/http.js";
 
 type BuildAppOptions = {
   appBaseUrl?: string;
+  config?: ApiConfig;
   databaseUrl?: string;
   interviewAiService?: InterviewAiService;
+  logLevel?: ApiConfig["LOG_LEVEL"];
   researchAiService?: ResearchAiService;
 };
 
-function isHttpError(
-  error: unknown,
-): error is {
-  statusCode: number;
-  message: string;
-} {
+function isHttpError(error: unknown): error is FastifyError {
   return (
     typeof error === "object" &&
     error !== null &&
@@ -37,17 +40,77 @@ function isHttpError(
   );
 }
 
-export function buildApp(options: BuildAppOptions = {}) {
-  const databaseUrl = options.databaseUrl ?? process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required to start the API.");
+function buildValidationDetails(error: unknown): HttpErrorDetail[] | undefined {
+  if (
+    !isHttpError(error) ||
+    !Array.isArray(error.validation) ||
+    error.validation.length === 0
+  ) {
+    return undefined;
   }
 
+  return error.validation.map((issue) => {
+    const missingProperty =
+      typeof issue.params === "object" &&
+      issue.params !== null &&
+      "missingProperty" in issue.params &&
+      typeof issue.params.missingProperty === "string"
+        ? issue.params.missingProperty
+        : undefined;
+
+    return {
+      field: issue.instancePath || missingProperty || error.validationContext || "request",
+      message: issue.message ?? "Invalid value.",
+    };
+  });
+}
+
+function buildHttpErrorResponse(error: unknown): HttpErrorResponse {
+  const details = buildValidationDetails(error);
+  const statusCode =
+    details !== undefined ? 400 : isHttpError(error) ? (error.statusCode ?? 500) : 500;
+
+  return {
+    ...(details ? { details } : {}),
+    error: STATUS_CODES[statusCode] ?? "Error",
+    message:
+      details !== undefined
+        ? "Validation failed."
+        : statusCode >= 500
+          ? "Internal server error."
+          : isHttpError(error)
+            ? error.message
+            : "Unexpected error.",
+    statusCode,
+  };
+}
+
+export function buildApp(options: BuildAppOptions = {}) {
+  const config =
+    options.config ??
+    loadApiConfig({
+      APP_BASE_URL: options.appBaseUrl,
+      DATABASE_URL: options.databaseUrl,
+      LOG_LEVEL: options.logLevel,
+    });
+
   const app = Fastify({
-    logger: true,
+    logger: {
+      level: config.LOG_LEVEL,
+      redact: {
+        censor: "[REDACTED]",
+        paths: [
+          "req.headers.authorization",
+          "req.headers.cookie",
+          "*.password",
+          "*.secret",
+          "*.token",
+        ],
+      },
+    },
   });
 
+  app.register(configPlugin, { config });
   app.register(sensible);
   app.register(cors, {
     allowedHeaders: ["Content-Type"],
@@ -55,30 +118,19 @@ export function buildApp(options: BuildAppOptions = {}) {
     origin: true,
   });
 
-  app.setErrorHandler((error, _request, reply) => {
-    if (error instanceof ApiError) {
-      reply.status(error.statusCode).send({
-        error: error.message,
-      });
-      return;
+  app.setErrorHandler((error, request, reply) => {
+    const response = buildHttpErrorResponse(error);
+
+    if (response.statusCode >= 500) {
+      request.log.error({ err: error, response }, "request failed");
+    } else {
+      request.log.warn({ err: error, response }, "request failed");
     }
 
-    if (isHttpError(error) && error.statusCode >= 400) {
-      reply.status(error.statusCode).send({
-        error: error.message,
-      });
-      return;
-    }
-
-    reply.status(500).send({
-      error: "Internal server error.",
-    });
+    reply.status(response.statusCode).send(response);
   });
 
-  app.register(databasePlugin, {
-    appBaseUrl: options.appBaseUrl ?? process.env.APP_BASE_URL ?? "http://localhost:3000",
-    databaseUrl,
-  });
+  app.register(databasePlugin);
   app.register(aiPlugin, {
     interviewAiService: options.interviewAiService,
     researchAiService: options.researchAiService,

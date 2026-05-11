@@ -18,11 +18,13 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.63",
     "@fastify/cors": "^11.1.0",
+    "@fastify/postgres": "^6.0.2",
     "@fastify/sensible": "^6.0.3",
     "@motives-ai/contracts": "workspace:*",
     "@sinclair/typebox": "^0.34.41",
     "ai": "^6.0.177",
     "drizzle-orm": "^0.45.2",
+    "env-schema": "^7.0.0",
     "fastify": "^5.6.1",
     "fastify-plugin": "^5.1.0",
     "pg": "^8.20.0"

@@ -2,13 +2,18 @@ import { randomUUID } from "node:crypto";
 
 import type { FastifyPluginAsync } from "fastify";
 import { createUIMessageStream, pipeUIMessageStreamToResponse, type UIMessage } from "ai";
-import { Type } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 
 import {
   PublicInterviewActionInputSchema,
   PublicInterviewActionResponseSchema,
   PublicInterviewChatInputSchema,
   PublicInterviewRouteStateSchema,
+  type InterviewMessageMetadata,
+  type PublicInterviewActionInput,
+  type PublicInterviewActionResponse,
+  type PublicInterviewChatInput,
+  type PublicInterviewRouteState,
 } from "@motives-ai/contracts/public-interviews";
 
 import {
@@ -22,6 +27,7 @@ import {
   advanceInterviewProgressStateAfterSkip,
   buildFallbackInterviewProgressState,
 } from "../lib/interview-progress.js";
+import { commonErrorResponses } from "../schemas/http.js";
 import type { AssistantTurnResult } from "../ai/service.js";
 
 function createTurnId() {
@@ -66,14 +72,18 @@ function buildClosingMessage() {
   return "Thanks, that covers everything I needed for this interview. I really appreciate you walking me through your experience. You can end the session whenever you're ready.";
 }
 
+const InviteCodeParamsSchema = Type.Object({
+  inviteCode: Type.String(),
+});
+
+type InviteCodeParams = Static<typeof InviteCodeParamsSchema>;
+
 const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
-  app.get(
+  app.get<{ Params: InviteCodeParams; Reply: PublicInterviewRouteState }>(
     "/:inviteCode",
     {
       schema: {
-        params: Type.Object({
-          inviteCode: Type.String(),
-        }),
+        params: InviteCodeParamsSchema,
         response: {
           200: PublicInterviewRouteStateSchema,
           404: PublicInterviewRouteStateSchema,
@@ -82,7 +92,7 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const { inviteCode } = request.params as { inviteCode: string };
+      const { inviteCode } = request.params;
       const routeState = await getPublicInterviewRouteState(app.db, inviteCode);
 
       if (routeState.kind === "invalid") {
@@ -95,19 +105,18 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.post(
+  app.post<{ Body: PublicInterviewChatInput; Params: InviteCodeParams }>(
     "/:inviteCode/chat",
     {
       schema: {
         body: PublicInterviewChatInputSchema,
-        params: Type.Object({
-          inviteCode: Type.String(),
-        }),
+        params: InviteCodeParamsSchema,
+        response: commonErrorResponses,
       },
     },
     async (request, reply) => {
-      const { inviteCode } = request.params as { inviteCode: string };
-      const input = request.body as import("@motives-ai/contracts").PublicInterviewChatInput;
+      const { inviteCode } = request.params;
+      const input = request.body;
       const userText = getMessageText(input.message).trim();
 
       if (!userText) {
@@ -119,9 +128,7 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
         userText,
       });
 
-      const stream = createUIMessageStream<UIMessage<
-        import("@motives-ai/contracts").InterviewMessageMetadata
-      >>({
+      const stream = createUIMessageStream<UIMessage<InterviewMessageMetadata>>({
         async execute({ writer }) {
           if (prepared.kind === "replay") {
             writer.write({
@@ -317,26 +324,25 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.post(
+  app.post<{
+    Body: PublicInterviewActionInput;
+    Params: InviteCodeParams;
+    Reply: PublicInterviewActionResponse;
+  }>(
     "/:inviteCode/actions",
     {
       schema: {
-        params: Type.Object({
-          inviteCode: Type.String(),
-        }),
+        params: InviteCodeParamsSchema,
         body: PublicInterviewActionInputSchema,
         response: {
           200: PublicInterviewActionResponseSchema,
+          ...commonErrorResponses,
         },
       },
     },
     async (request) => {
-      const { inviteCode } = request.params as { inviteCode: string };
-      return await performPublicInterviewAction(
-        app.db,
-        inviteCode,
-        request.body as import("@motives-ai/contracts").PublicInterviewActionInput,
-      );
+      const { inviteCode } = request.params;
+      return await performPublicInterviewAction(app.db, inviteCode, request.body);
     },
   );
 };

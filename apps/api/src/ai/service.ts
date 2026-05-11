@@ -20,6 +20,7 @@ import {
   buildInterviewerSystemPrompt,
   buildTurnAnnotationPrompt,
 } from "./prompts.js";
+import type { ApiConfig } from "../lib/config.js";
 
 type AssistantTurnInput = {
   event?: PublicInterviewChatEvent;
@@ -82,28 +83,35 @@ function toModelMessages(transcript: TranscriptTurnRow[]) {
   }));
 }
 
-function getOpenAiModels() {
+type OpenAiInterviewConfig = Pick<
+  ApiConfig,
+  | "OPENAI_API_KEY"
+  | "OPENAI_MODEL_ANNOTATOR"
+  | "OPENAI_MODEL_INTERVIEWER"
+  | "OPENAI_REASONING_EFFORT"
+>;
+
+function getOpenAiModels(config: OpenAiInterviewConfig) {
   return {
-    annotation:
-      process.env.OPENAI_MODEL_ANNOTATOR ?? "gpt-5.4-mini",
-    interviewer:
-      process.env.OPENAI_MODEL_INTERVIEWER ?? "gpt-5.4-mini",
-    reasoningEffort:
-      process.env.OPENAI_REASONING_EFFORT ?? "low",
+    annotation: config.OPENAI_MODEL_ANNOTATOR,
+    interviewer: config.OPENAI_MODEL_INTERVIEWER,
+    reasoningEffort: config.OPENAI_REASONING_EFFORT,
   } as const;
 }
 
-function ensureOpenAiApiKey() {
-  if (!process.env.OPENAI_API_KEY) {
+function ensureOpenAiApiKey(config: OpenAiInterviewConfig) {
+  if (!config.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is not configured for live interview chat.");
   }
 }
 
-export function createOpenAiInterviewAiService(): InterviewAiService {
+export function createOpenAiInterviewAiService(
+  config: OpenAiInterviewConfig,
+): InterviewAiService {
   return {
     async predictProgressAfterParticipantTurn(input) {
-      ensureOpenAiApiKey();
-      const { annotation, reasoningEffort } = getOpenAiModels();
+      ensureOpenAiApiKey(config);
+      const { annotation, reasoningEffort } = getOpenAiModels(config);
       const result = await generateText({
         model: openai(annotation),
         output: Output.object({
@@ -121,8 +129,8 @@ export function createOpenAiInterviewAiService(): InterviewAiService {
     },
 
     async startAssistantTurn(input) {
-      ensureOpenAiApiKey();
-      const { interviewer, reasoningEffort } = getOpenAiModels();
+      ensureOpenAiApiKey(config);
+      const { interviewer, reasoningEffort } = getOpenAiModels(config);
       const result = streamText({
         messages: toModelMessages(input.transcript),
         model: openai(interviewer),
@@ -156,8 +164,8 @@ export function createOpenAiInterviewAiService(): InterviewAiService {
     },
 
     async annotateAssistantTurn(input) {
-      ensureOpenAiApiKey();
-      const { annotation, reasoningEffort } = getOpenAiModels();
+      ensureOpenAiApiKey(config);
+      const { annotation, reasoningEffort } = getOpenAiModels(config);
       const result = await generateText({
         model: openai(annotation),
         output: Output.object({

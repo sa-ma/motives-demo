@@ -1,19 +1,12 @@
 import { createOpenAiResearchAiService } from "./ai/research-service.js";
 import { createDatabaseClient, createPgPool } from "./db/client.js";
-import { loadApiEnv } from "./lib/env.js";
+import { loadApiConfig } from "./lib/config.js";
 import { startAnalysisWorker } from "./lib/analysis-worker.js";
 
-loadApiEnv();
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to start the analysis worker.");
-}
-
-const pool = createPgPool(databaseUrl);
+const config = loadApiConfig();
+const pool = createPgPool(config.DATABASE_URL);
 const db = createDatabaseClient(pool);
-const researchAiService = createOpenAiResearchAiService();
+const researchAiService = createOpenAiResearchAiService(config);
 const logger = console;
 
 const worker = startAnalysisWorker({
@@ -26,7 +19,7 @@ const worker = startAnalysisWorker({
       logger.info(message ?? "analysis worker info", payload);
     },
   },
-  pollIntervalMs: Number(process.env.ANALYSIS_WORKER_POLL_MS ?? 5000),
+  pollIntervalMs: config.ANALYSIS_WORKER_POLL_MS,
   researchAiService,
 });
 

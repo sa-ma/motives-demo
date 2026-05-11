@@ -18,6 +18,7 @@ import {
   type SessionDebriefOutput,
   type StudyAggregateOutput,
 } from "./research-schemas.js";
+import type { ApiConfig } from "../lib/config.js";
 
 type ProviderResult<T> = {
   model: string;
@@ -45,22 +46,32 @@ export interface ResearchAiService {
   }): Promise<ProviderResult<StudyAggregateOutput>>;
 }
 
-function ensureOpenAiApiKey() {
-  if (!process.env.OPENAI_API_KEY) {
+type OpenAiResearchConfig = Pick<
+  ApiConfig,
+  | "OPENAI_API_KEY"
+  | "OPENAI_MODEL_AGGREGATE"
+  | "OPENAI_MODEL_DEBRIEF"
+  | "OPENAI_MODEL_PLAN_GENERATOR"
+  | "OPENAI_REASONING_EFFORT"
+>;
+
+function ensureOpenAiApiKey(config: OpenAiResearchConfig) {
+  if (!config.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is not configured for AI-backed study generation.");
   }
 }
 
-function getResearchModels() {
+function getResearchModels(config: OpenAiResearchConfig) {
   return {
-    aggregate: process.env.OPENAI_MODEL_AGGREGATE ?? "gpt-5.4",
-    debrief: process.env.OPENAI_MODEL_DEBRIEF ?? "gpt-5.4",
-    plan: process.env.OPENAI_MODEL_PLAN_GENERATOR ?? "gpt-5.4",
-    reasoningEffort: process.env.OPENAI_REASONING_EFFORT ?? "low",
+    aggregate: config.OPENAI_MODEL_AGGREGATE,
+    debrief: config.OPENAI_MODEL_DEBRIEF,
+    plan: config.OPENAI_MODEL_PLAN_GENERATOR,
+    reasoningEffort: config.OPENAI_REASONING_EFFORT,
   } as const;
 }
 
 async function generateObject<T>(options: {
+  config: OpenAiResearchConfig;
   model: string;
   prompt: string;
   schema: ReturnType<typeof Output.object>;
@@ -71,7 +82,7 @@ async function generateObject<T>(options: {
     prompt: options.prompt,
     providerOptions: {
       openai: {
-        reasoningEffort: getResearchModels().reasoningEffort,
+        reasoningEffort: getResearchModels(options.config).reasoningEffort,
       },
     },
   });
@@ -89,12 +100,15 @@ async function generateObject<T>(options: {
   };
 }
 
-export function createOpenAiResearchAiService(): ResearchAiService {
+export function createOpenAiResearchAiService(
+  config: OpenAiResearchConfig,
+): ResearchAiService {
   return {
     async generateStudyPlan(input) {
-      ensureOpenAiApiKey();
-      const { plan } = getResearchModels();
+      ensureOpenAiApiKey(config);
+      const { plan } = getResearchModels(config);
       const result = await generateObject<GeneratedStudyPlanOutput>({
+        config,
         model: plan,
         prompt: buildStudyPlanPrompt(input),
         schema: Output.object({
@@ -110,9 +124,10 @@ export function createOpenAiResearchAiService(): ResearchAiService {
     },
 
     async generateSessionDebrief(input) {
-      ensureOpenAiApiKey();
-      const { debrief } = getResearchModels();
+      ensureOpenAiApiKey(config);
+      const { debrief } = getResearchModels(config);
       const result = await generateObject<SessionDebriefOutput>({
+        config,
         model: debrief,
         prompt: buildSessionDebriefPrompt(input),
         schema: Output.object({
@@ -128,9 +143,10 @@ export function createOpenAiResearchAiService(): ResearchAiService {
     },
 
     async synthesizeStudyAggregate(input) {
-      ensureOpenAiApiKey();
-      const { aggregate } = getResearchModels();
+      ensureOpenAiApiKey(config);
+      const { aggregate } = getResearchModels(config);
       const result = await generateObject<StudyAggregateOutput>({
+        config,
         model: aggregate,
         prompt: buildStudyAggregatePrompt(input),
         schema: Output.object({

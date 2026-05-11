@@ -322,6 +322,7 @@ async function createTestApp(options: {
     appBaseUrl: "http://localhost:3000",
     databaseUrl: testDatabaseUrl,
     interviewAiService: options.interviewAiService ?? createFakeInterviewAiService(),
+    logLevel: "fatal",
     researchAiService: options.researchAiService ?? createFakeResearchAiService(),
   });
 
@@ -336,6 +337,58 @@ before(async () => {
 
 beforeEach(async () => {
   await truncateAllTables(testDatabaseUrl);
+});
+
+test("POST /v1/studies returns structured validation errors", async () => {
+  const app = await createTestApp();
+
+  try {
+    const response = await app.inject({
+      method: "POST",
+      payload: {
+        title: "",
+      },
+      url: "/v1/studies",
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = parseJson<{
+      details: Array<{ field: string; message: string }>;
+      error: string;
+      message: string;
+      statusCode: number;
+    }>(response.body);
+
+    assert.equal(body.statusCode, 400);
+    assert.equal(body.error, "Bad Request");
+    assert.equal(body.message, "Validation failed.");
+    assert.deepEqual(body.details[0], {
+      field: "objective",
+      message: "must have required property 'objective'",
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET /v1/studies/:studyId returns structured not found errors", async () => {
+  const app = await createTestApp();
+
+  try {
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/studies/does-not-exist",
+    });
+
+    assert.equal(response.statusCode, 404);
+    assert.deepEqual(parseJson(response.body), {
+      error: "Not Found",
+      message: "Study not found.",
+      statusCode: 404,
+    });
+  } finally {
+    await app.close();
+  }
 });
 
 test("GET /v1/studies supports status, search, and updated sorting", async () => {
@@ -680,7 +733,9 @@ test("archiving a study is rejected while participant sessions are still active"
 
     assert.equal(archiveResponse.statusCode, 409);
     assert.deepEqual(parseJson(archiveResponse.body), {
-      error: "All participant sessions must be finished before archiving the study.",
+      error: "Conflict",
+      message: "All participant sessions must be finished before archiving the study.",
+      statusCode: 409,
     });
   } finally {
     await app.close();

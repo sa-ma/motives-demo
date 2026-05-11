@@ -1,10 +1,9 @@
+import fastifyPostgres from "@fastify/postgres";
 import fp from "fastify-plugin";
 import type { Pool } from "pg";
 
 import {
-  checkDatabaseHealth,
   createDatabaseClient,
-  createPgPool,
   type AppDatabase,
 } from "../db/client.js";
 
@@ -17,27 +16,21 @@ declare module "fastify" {
   }
 }
 
-type DatabasePluginOptions = {
-  appBaseUrl: string;
-  databaseUrl: string;
-};
+export const databasePlugin = fp(async (app) => {
+  await app.register(fastifyPostgres, {
+    connectionString: app.config.DATABASE_URL,
+  });
 
-export const databasePlugin = fp<DatabasePluginOptions>(async (app, options) => {
-  if (!options.databaseUrl) {
-    throw new Error("DATABASE_URL is required to start the API.");
-  }
-
-  const pool = createPgPool(options.databaseUrl);
+  const pool = app.pg.pool;
   const db = createDatabaseClient(pool);
 
   app.decorate("db", db);
-  app.decorate("appBaseUrl", options.appBaseUrl);
+  app.decorate("appBaseUrl", app.config.APP_BASE_URL);
   app.decorate("pgPool", pool);
   app.decorate("checkDatabaseHealth", async () => {
-    await checkDatabaseHealth(pool);
+    await app.pg.query("select 1");
   });
-
-  app.addHook("onClose", async () => {
-    await pool.end();
-  });
+}, {
+  dependencies: ["config"],
+  name: "database",
 });
