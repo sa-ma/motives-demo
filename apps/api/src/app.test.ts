@@ -503,6 +503,41 @@ test("GET /v1/studies supports status, search, and updated sorting", async () =>
   }
 });
 
+test("study reads do not rewrite cached aggregate state", async () => {
+  const app = await createTestApp();
+
+  try {
+    const interview = await createReadyInterview(app);
+    const cachedAt = "2026-02-03T04:05:06.000Z";
+
+    await app.pgPool.query(
+      "update study_aggregate set updated_at = $1 where study_id = $2",
+      [cachedAt, interview.studyId],
+    );
+
+    const detailResponse = await app.inject({
+      method: "GET",
+      url: `/v1/studies/${interview.studyId}`,
+    });
+    const listResponse = await app.inject({
+      method: "GET",
+      url: "/v1/studies",
+    });
+
+    assert.equal(detailResponse.statusCode, 200);
+    assert.equal(listResponse.statusCode, 200);
+
+    const aggregateAfterReads = await app.pgPool.query<{ updated_at: Date }>(
+      "select updated_at from study_aggregate where study_id = $1",
+      [interview.studyId],
+    );
+
+    assert.equal(aggregateAfterReads.rows[0]?.updated_at.toISOString(), cachedAt);
+  } finally {
+    await app.close();
+  }
+});
+
 test("archiving a study hides it from the default list and cancels queued analysis", async () => {
   const app = await createTestApp();
 

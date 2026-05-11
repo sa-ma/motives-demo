@@ -210,7 +210,11 @@ export const interviewInvite = pgTable(
     expiresAt: timestamp("expires_at", { mode: "string", withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { mode: "string", withTimezone: true }),
   },
-  () => ({}),
+  (table) => ({
+    studyActiveCreatedIdx: index("idx_interview_invite_study_active_created")
+      .on(table.studyId, table.createdAt)
+      .where(sql`${table.revokedAt} is null`),
+  }),
 );
 
 export const participantProfile = pgTable("participant_profile", {

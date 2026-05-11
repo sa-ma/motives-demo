@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNotNull, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, max, sql } from "drizzle-orm";
 
 import type { DatabaseExecutor } from "../client.js";
 import { sessionAnnotation, transcriptTurn } from "../schema.js";
@@ -17,6 +17,20 @@ export async function listTranscriptForSession(
   return db.query.transcriptTurn.findMany({
     where: eq(transcriptTurn.sessionId, sessionId),
     orderBy: [asc(transcriptTurn.sortOrder)],
+  });
+}
+
+export async function listTranscriptForSessions(
+  db: DatabaseExecutor,
+  sessionIds: string[],
+) {
+  if (sessionIds.length === 0) {
+    return [];
+  }
+
+  return db.query.transcriptTurn.findMany({
+    orderBy: [asc(transcriptTurn.sessionId), asc(transcriptTurn.sortOrder)],
+    where: inArray(transcriptTurn.sessionId, sessionIds),
   });
 }
 
@@ -106,6 +120,20 @@ export async function findLatestSessionAnnotation(
   return db.query.sessionAnnotation.findFirst({
     orderBy: [desc(sessionAnnotation.createdAt)],
     where: eq(sessionAnnotation.sessionId, sessionId),
+  });
+}
+
+export async function listLatestSessionAnnotationsForSessions(
+  db: DatabaseExecutor,
+  sessionIds: string[],
+) {
+  if (sessionIds.length === 0) {
+    return [];
+  }
+
+  return db.query.sessionAnnotation.findMany({
+    orderBy: [asc(sessionAnnotation.sessionId), desc(sessionAnnotation.createdAt)],
+    where: inArray(sessionAnnotation.sessionId, sessionIds),
   });
 }
 

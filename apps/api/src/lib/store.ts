@@ -39,6 +39,7 @@ import {
   findLatestAnalysisJob,
   findOpenAnalysisJob,
   listDebriefReportsForStudy,
+  listLatestAnalysisJobsForSessions,
   markAnalysisJobCancelled,
   markAnalysisJobCompleted,
   markAnalysisJobFailed,
@@ -70,6 +71,7 @@ import {
 import {
   findAnnotationByAssistantTurnId,
   findLatestSessionAnnotation,
+  listLatestSessionAnnotationsForSessions,
   findNextTranscriptTurn,
   findTranscriptTurnByClientMessageId,
   getNextTranscriptSortOrder,
@@ -78,6 +80,7 @@ import {
   insertSessionAnnotation,
   listSessionAnnotations,
   listTranscriptForSession,
+  listTranscriptForSessions,
   lockInterviewSession,
 } from "../db/repositories/public-interviews.js";
 import {
@@ -571,59 +574,52 @@ async function buildStudySummary(
   appBaseUrl: string,
   study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>,
 ): Promise<StudySummary> {
-  await refreshStudyAggregate(db, study.id);
-  const refreshedStatus = await refreshStudyStatus(db, study.id);
-  const currentStudy =
-    refreshedStatus === study.status
-      ? study
-      : (await findStudyById(db, study.id)) ?? study;
-
   const [aggregate, approvedPlan, draftPlan, counts, latestInvite] = await Promise.all([
-    findStudyAggregate(db, currentStudy.id),
-    findCurrentApprovedPlan(db, currentStudy.id),
-    findCurrentDraftPlan(db, currentStudy.id),
-    countSessions(db, currentStudy.id),
-    findLatestActiveInviteForStudy(db, currentStudy.id, nowIso()),
+    findStudyAggregate(db, study.id),
+    findCurrentApprovedPlan(db, study.id),
+    findCurrentDraftPlan(db, study.id),
+    countSessions(db, study.id),
+    findLatestActiveInviteForStudy(db, study.id, nowIso()),
   ]);
   const topics =
     approvedPlan?.topics ??
     draftPlan?.topics ??
-    (await findStudyTopics(db, currentStudy.id));
+    (await findStudyTopics(db, study.id));
   const hasAggregateAnalysis = (aggregate?.completedSessionCount ?? 0) > 0;
   const awaitingAnalysis = counts.completed > 0 && !hasAggregateAnalysis;
-  const statusLabel = currentStudy.status === "archived" ? "Archived" : toTitleCase(currentStudy.status);
+  const statusLabel = study.status === "archived" ? "Archived" : toTitleCase(study.status);
 
   return {
-    id: currentStudy.id,
-    title: currentStudy.title,
-    description: currentStudy.objective,
-    status: currentStudy.status,
+    id: study.id,
+    title: study.title,
+    description: study.objective,
+    status: study.status,
     statusLabel,
     canStartInterview:
       Boolean(approvedPlan) &&
-      currentStudy.status !== "completed" &&
-      currentStudy.status !== "archived",
-    canArchiveStudy: currentStudy.status !== "archived" && counts.total > 0 && counts.active === 0,
+      study.status !== "completed" &&
+      study.status !== "archived",
+    canArchiveStudy: study.status !== "archived" && counts.total > 0 && counts.active === 0,
     canEndStudy:
-      currentStudy.status !== "completed" &&
-      currentStudy.status !== "archived" &&
+      study.status !== "completed" &&
+      study.status !== "archived" &&
       counts.total > 0 &&
       counts.active === 0,
     latestInviteUrl: latestInvite
-      && currentStudy.status !== "completed"
-      && currentStudy.status !== "archived"
+      && study.status !== "completed"
+      && study.status !== "archived"
       ? `${appBaseUrl.replace(/\/$/, "")}/interviews/${latestInvite.inviteCode}`
       : undefined,
     interviewsCompleted: counts.completed,
-    interviewsTarget: currentStudy.interviewsTarget,
+    interviewsTarget: study.interviewsTarget,
     coverage: awaitingAnalysis ? 0 : aggregate?.coverage ?? 0,
     signalCount: awaitingAnalysis ? 0 : aggregate?.signalCount ?? 0,
     themeLabel:
-      currentStudy.status === "planning"
+      study.status === "planning"
         ? "Planned topics"
         : awaitingAnalysis
           ? "Awaiting analysis"
-          : currentStudy.status === "completed" || currentStudy.status === "archived"
+          : study.status === "completed" || study.status === "archived"
             ? "Top themes"
             : "Emerging themes",
     themes: awaitingAnalysis ? [] : aggregate?.themes ?? topics.slice(0, 3),
@@ -636,26 +632,23 @@ async function buildStudySummary(
         ? PENDING_ANALYSIS_OBSERVATION
         : aggregate?.observation ??
           "This study is ready for plan review. Generate or refine the interview plan before creating invites.",
-    updatedLabel: toRelativeLabel(currentStudy.updatedAt),
+    updatedLabel: toRelativeLabel(study.updatedAt),
     actionLabel:
-      currentStudy.status === "planning"
+      study.status === "planning"
         ? "Review Plan"
-        : currentStudy.status === "completed" || currentStudy.status === "archived"
+        : study.status === "completed" || study.status === "archived"
           ? "View Study"
           : "Continue Study",
-    accent: currentStudy.status,
+    accent: study.status,
   };
 }
 
-async function mapTopicCoverage(
-  db: DatabaseExecutor,
-  studyId: string,
-): Promise<StudyDetail["topicCoverage"]> {
-  const [aggregate, counts] = await Promise.all([
-    findStudyAggregate(db, studyId),
-    countSessions(db, studyId),
-  ]);
-
+function buildTopicCoverage(options: {
+  aggregate: Awaited<ReturnType<typeof findStudyAggregate>>;
+  counts: Awaited<ReturnType<typeof countSessions>>;
+  topics: string[];
+}): StudyDetail["topicCoverage"] {
+  const { aggregate, counts, topics } = options;
   if (
     aggregate?.topicCoverage?.length &&
     ((aggregate.completedSessionCount ?? 0) > 0 || counts.completed === 0)
@@ -663,32 +656,20 @@ async function mapTopicCoverage(
     return aggregate.topicCoverage;
   }
 
-  const approvedPlan = await findCurrentApprovedPlan(db, studyId);
-  const draftPlan = await findCurrentDraftPlan(db, studyId);
-  const topics =
-    approvedPlan?.topics ??
-    draftPlan?.topics ??
-    (await findStudyTopics(db, studyId));
-
   return buildTopicCoverageFallback(topics, counts);
 }
 
-async function getSessionDebriefResponse(
-  db: DatabaseExecutor,
-  studyId: string,
-  sessionId: string,
-): Promise<SessionDebriefResponse | null> {
-  const report = await findDebriefReportBySessionId(db, sessionId);
+function buildSessionDebriefState(options: {
+  latestJob: Awaited<ReturnType<typeof findLatestAnalysisJob>> | null;
+  report: Awaited<ReturnType<typeof findDebriefReportBySessionId>> | null;
+  sessionId: string;
+  studyId: string;
+}): SessionDebriefResponse | null {
+  const { latestJob, report, sessionId, studyId } = options;
 
   if (report) {
     return debriefResponseFromRow(report);
   }
-
-  const latestJob = await findLatestAnalysisJob(db, {
-    kind: "session-debrief",
-    sessionId,
-    studyId,
-  });
 
   if (!latestJob) {
     return null;
@@ -710,82 +691,153 @@ async function getSessionDebriefResponse(
   };
 }
 
-async function mapSessionItem(
+async function getSessionDebriefResponse(
   db: DatabaseExecutor,
   studyId: string,
-  session: Awaited<ReturnType<typeof listSessionsForStudy>>[number],
-  topicLabels: string[],
-): Promise<StudySessionItem> {
-  const isComplete = session.sessionStatus === "complete";
-  const participantLabel = `Participant ${String(session.participantNumber).padStart(2, "0")}`;
-  const [latestAnnotation, debriefState, debriefReport, transcript] = await Promise.all([
-    findLatestSessionAnnotation(db, session.id),
-    getSessionDebriefResponse(db, studyId, session.id),
-    findDebriefReportBySessionId(db, session.id),
-    getTranscript(db, session.id),
+  sessionId: string,
+): Promise<SessionDebriefResponse | null> {
+  const [report, latestJob] = await Promise.all([
+    findDebriefReportBySessionId(db, sessionId),
+    findLatestAnalysisJob(db, {
+      kind: "session-debrief",
+      sessionId,
+      studyId,
+    }),
   ]);
-  const fallbackProgressState = latestAnnotation
-    ? normalizeProgressState(topicLabels, latestAnnotation.progressState)
-    : buildFallbackAnnotationState(topicLabels, transcript);
-  const coveredTopics =
-    debriefState?.status === "ready"
-      ? debriefState.debrief.coverage.topics.filter((item) => item.status === "covered").length
-      : fallbackProgressState.coveredTopicLabels.length;
-  const knownTotalTopics =
-    debriefState?.status === "ready"
-      ? debriefState.debrief.coverage.topics.length
-      : topicLabels.length;
-  const progress =
-    knownTotalTopics === 0 ? 0 : Math.round((coveredTopics / knownTotalTopics) * 100);
-  const emotionalSignal =
-    debriefState?.status === "ready"
-      ? debriefReport?.emotionSignal ?? "low"
-      : latestAnnotation?.emotionSignal ?? "low";
-  const contradictionsCount =
-    debriefState?.status === "ready"
-      ? debriefReport?.contradictions.length ?? 0
-      : latestAnnotation?.contradictions.length ?? 0;
-  const debriefStatus = isComplete
-    ? debriefState?.status ?? "pending"
-    : "unavailable";
-  const actionLabel =
-    debriefStatus === "ready"
-      ? "View Debrief"
-      : debriefStatus === "failed"
-        ? "Debrief Failed"
-        : debriefStatus === "pending"
-          ? "Debrief Pending"
-          : "Participant In Progress";
 
-  return {
-    id: session.id,
-    participantLabel,
-    participantInitials: `P${session.participantNumber}`,
-    state: isComplete ? "completed" : "in-progress",
-    stateLabel: isComplete ? "Completed" : "In Progress",
-    timingLabel:
-      isComplete && session.completedAt
-        ? toRelativeLabel(session.completedAt, "").replace(/^ /, "")
-        : toRelativeLabel(session.updatedAt, "").replace(/^ /, ""),
-    emotionalSignal,
-    topicsCoveredLabel: `${coveredTopics} / ${knownTotalTopics}`,
-    topicsCoveredProgress: progress,
-    contradictionsCount,
-    actionLabel,
-    actionTone: "outline",
-    debriefError: debriefState?.status === "failed" ? debriefState.error : undefined,
-    debriefStatus,
-  };
+  return buildSessionDebriefState({
+    latestJob,
+    report,
+    sessionId,
+    studyId,
+  });
 }
 
-async function mapRecentActivity(
+async function buildSessionItems(
   db: DatabaseExecutor,
   studyId: string,
-): Promise<StudyDetail["recentActivity"]> {
-  const [sessions, debriefs] = await Promise.all([
-    listSessionsForStudy(db, studyId),
-    listDebriefReportsForStudy(db, studyId),
+  sessions: Awaited<ReturnType<typeof listSessionsForStudy>>,
+  topicLabels: string[],
+  debriefReports: Awaited<ReturnType<typeof listDebriefReportsForStudy>>,
+): Promise<StudySessionItem[]> {
+  const sessionIds = sessions.map((session) => session.id);
+  const latestJobs = await listLatestAnalysisJobsForSessions(db, {
+    kind: "session-debrief",
+    sessionIds,
+    studyId,
+  });
+
+  const debriefBySessionId = new Map(
+    debriefReports.map((report) => [report.sessionId, report]),
+  );
+  const latestJobBySessionId = new Map<string, (typeof latestJobs)[number]>();
+
+  for (const job of latestJobs) {
+    if (job.sessionId && !latestJobBySessionId.has(job.sessionId)) {
+      latestJobBySessionId.set(job.sessionId, job);
+    }
+  }
+
+  const fallbackSessionIds = sessions
+    .filter((session) => !debriefBySessionId.has(session.id))
+    .map((session) => session.id);
+  const [latestAnnotations, transcriptRows] = await Promise.all([
+    listLatestSessionAnnotationsForSessions(db, fallbackSessionIds),
+    listTranscriptForSessions(db, fallbackSessionIds),
   ]);
+  const latestAnnotationBySessionId = new Map<string, (typeof latestAnnotations)[number]>();
+  const transcriptBySessionId = new Map<string, (typeof transcriptRows)>();
+
+  for (const annotation of latestAnnotations) {
+    if (!latestAnnotationBySessionId.has(annotation.sessionId)) {
+      latestAnnotationBySessionId.set(annotation.sessionId, annotation);
+    }
+  }
+
+  for (const row of transcriptRows) {
+    const transcript = transcriptBySessionId.get(row.sessionId);
+
+    if (transcript) {
+      transcript.push(row);
+    } else {
+      transcriptBySessionId.set(row.sessionId, [row]);
+    }
+  }
+
+  return sessions.map((session) => {
+    const isComplete = session.sessionStatus === "complete";
+    const participantLabel = `Participant ${String(session.participantNumber).padStart(2, "0")}`;
+    const debriefReport = debriefBySessionId.get(session.id) ?? null;
+    const debriefState = buildSessionDebriefState({
+      latestJob: latestJobBySessionId.get(session.id) ?? null,
+      report: debriefReport,
+      sessionId: session.id,
+      studyId,
+    });
+    const latestAnnotation = latestAnnotationBySessionId.get(session.id) ?? null;
+    const transcript = transcriptBySessionId.get(session.id) ?? [];
+    const fallbackProgressState =
+      debriefState?.status === "ready"
+        ? null
+        : latestAnnotation
+          ? normalizeProgressState(topicLabels, latestAnnotation.progressState)
+          : buildFallbackAnnotationState(topicLabels, transcript);
+    const coveredTopics =
+      debriefState?.status === "ready"
+        ? debriefState.debrief.coverage.topics.filter((item) => item.status === "covered").length
+        : fallbackProgressState?.coveredTopicLabels.length ?? 0;
+    const knownTotalTopics =
+      debriefState?.status === "ready"
+        ? debriefState.debrief.coverage.topics.length
+        : topicLabels.length;
+    const progress =
+      knownTotalTopics === 0 ? 0 : Math.round((coveredTopics / knownTotalTopics) * 100);
+    const emotionalSignal =
+      debriefState?.status === "ready"
+        ? debriefReport?.emotionSignal ?? "low"
+        : latestAnnotation?.emotionSignal ?? "low";
+    const contradictionsCount =
+      debriefState?.status === "ready"
+        ? debriefReport?.contradictions.length ?? 0
+        : latestAnnotation?.contradictions.length ?? 0;
+    const debriefStatus = isComplete
+      ? debriefState?.status ?? "pending"
+      : "unavailable";
+    const actionLabel =
+      debriefStatus === "ready"
+        ? "View Debrief"
+        : debriefStatus === "failed"
+          ? "Debrief Failed"
+          : debriefStatus === "pending"
+            ? "Debrief Pending"
+            : "Participant In Progress";
+
+    return {
+      id: session.id,
+      participantLabel,
+      participantInitials: `P${session.participantNumber}`,
+      state: isComplete ? "completed" : "in-progress",
+      stateLabel: isComplete ? "Completed" : "In Progress",
+      timingLabel:
+        isComplete && session.completedAt
+          ? toRelativeLabel(session.completedAt, "").replace(/^ /, "")
+          : toRelativeLabel(session.updatedAt, "").replace(/^ /, ""),
+      emotionalSignal,
+      topicsCoveredLabel: `${coveredTopics} / ${knownTotalTopics}`,
+      topicsCoveredProgress: progress,
+      contradictionsCount,
+      actionLabel,
+      actionTone: "outline",
+      debriefError: debriefState?.status === "failed" ? debriefState.error : undefined,
+      debriefStatus,
+    };
+  });
+}
+
+function buildRecentActivity(
+  sessions: Awaited<ReturnType<typeof listSessionsForStudy>>,
+  debriefs: Awaited<ReturnType<typeof listDebriefReportsForStudy>>,
+): StudyDetail["recentActivity"] {
   const debriefBySessionId = new Map(
     debriefs.map((debrief) => [debrief.sessionId, debrief]),
   );
@@ -1043,35 +1095,34 @@ export async function getStudyDetail(
   db: AppDatabase,
   studyId: string,
 ): Promise<StudyDetail> {
-  let study = await findStudyById(db, studyId);
+  const study = await findStudyById(db, studyId);
 
   if (!study) {
     throw new ApiError(404, "Study not found.");
   }
 
-  await refreshStudyAggregate(db, studyId);
-  const refreshedStatus = await refreshStudyStatus(db, studyId);
-
-  if (refreshedStatus !== study.status) {
-    study = (await findStudyById(db, studyId)) ?? study;
-  }
-  const [aggregate, approvedPlan, draftPlan, sessions, counts, topicCoverage, recentActivity] =
+  const [aggregate, approvedPlan, draftPlan, sessions, counts, debriefs] =
     await Promise.all([
       findStudyAggregate(db, studyId),
       findCurrentApprovedPlan(db, studyId),
       findCurrentDraftPlan(db, studyId),
       listSessionsForStudy(db, studyId),
       countSessions(db, studyId),
-      mapTopicCoverage(db, studyId),
-      mapRecentActivity(db, studyId),
+      listDebriefReportsForStudy(db, studyId),
     ]);
   const topics =
     approvedPlan?.topics ??
     draftPlan?.topics ??
     (await findStudyTopics(db, studyId));
-  const sessionsForDetail = await Promise.all(
-    sessions.map((session) => mapSessionItem(db, studyId, session, topics)),
-  );
+  const [topicCoverage, sessionsForDetail] = await Promise.all([
+    buildTopicCoverage({
+      aggregate,
+      counts,
+      topics,
+    }),
+    buildSessionItems(db, studyId, sessions, topics, debriefs),
+  ]);
+  const recentActivity = buildRecentActivity(sessions, debriefs);
   const analysis = summarizeStudyAnalysis(sessionsForDetail);
   const displayPlan = approvedPlan ?? draftPlan;
   const hasAggregateAnalysis = analysis.readyDebriefs > 0;
@@ -1783,7 +1834,6 @@ export async function processNextAnalysisJob(
           updatedAt,
         });
         await enqueueStudyAggregateJob(tx, study.id, updatedAt);
-        await refreshStudyAggregate(tx, study.id);
         await touchStudy(tx, study.id, updatedAt);
         await markAnalysisJobCompleted(tx, job.id, updatedAt);
       });

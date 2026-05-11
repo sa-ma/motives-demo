@@ -102,6 +102,32 @@ export async function findLatestAnalysisJob(
   });
 }
 
+export async function listLatestAnalysisJobsForSessions(
+  db: DatabaseExecutor,
+  options: {
+    kind: "session-debrief" | "study-aggregate";
+    sessionIds: string[];
+    studyId: string;
+  },
+) {
+  if (options.sessionIds.length === 0) {
+    return [];
+  }
+
+  return db.query.analysisJob.findMany({
+    orderBy: [
+      asc(analysisJob.sessionId),
+      desc(analysisJob.updatedAt),
+      desc(analysisJob.createdAt),
+    ],
+    where: and(
+      eq(analysisJob.kind, options.kind),
+      eq(analysisJob.studyId, options.studyId),
+      inArray(analysisJob.sessionId, options.sessionIds),
+    ),
+  });
+}
+
 export async function cancelQueuedAnalysisJobsForStudy(
   db: DatabaseExecutor,
   studyId: string,
