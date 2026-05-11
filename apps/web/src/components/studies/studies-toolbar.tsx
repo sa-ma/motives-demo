@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, Plus, Search } from "lucide-react";
 
 import type { StudyListSort } from "@motives-ai/contracts";
 

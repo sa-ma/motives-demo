@@ -105,6 +105,52 @@ export function ParticipantDetailsForm({
           <div className="space-y-4">
             {invite.participantFields.map((field) => {
               const value = values[field.id];
+              const helperText = field.helperText ? (
+                <p className="text-[12px] text-zinc-500">{field.helperText}</p>
+              ) : null;
+
+              if (field.type === "radio") {
+                return (
+                  <fieldset key={field.id} className="flex flex-col gap-1.5">
+                    <legend className="block text-[13px] font-semibold text-zinc-900">
+                      {field.label}
+                    </legend>
+                    <div className="flex max-w-[420px] gap-2.5">
+                      {field.options?.map((option) => {
+                        const checked = value === option.value;
+
+                        return (
+                          <label
+                            key={option.value}
+                            className={cn(
+                              "min-w-0 flex-1 cursor-pointer rounded-xl border px-4 py-3 text-center text-sm font-medium transition-colors",
+                              checked
+                                ? "border-primary bg-primary/6 text-primary"
+                                : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50",
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name={field.id}
+                              value={option.value}
+                              checked={checked}
+                              onChange={(event) =>
+                                setValues((current) => ({
+                                  ...current,
+                                  [field.id]: event.target.value,
+                                }))
+                              }
+                              className="sr-only"
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {helperText}
+                  </fieldset>
+                );
+              }
 
               return (
                 <div key={field.id} className="flex flex-col gap-1.5">
@@ -158,35 +204,6 @@ export function ParticipantDetailsForm({
                     </Select>
                   ) : null}
 
-                  {field.type === "radio" ? (
-                    <div className="flex max-w-[420px] gap-2.5">
-                      {field.options?.map((option) => {
-                        const checked = value === option.value;
-
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            className={cn(
-                              "min-w-0 flex-1 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
-                              checked
-                                ? "border-primary bg-primary/6 text-primary"
-                                : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50",
-                            )}
-                            onClick={() =>
-                              setValues((current) => ({
-                                ...current,
-                                [field.id]: option.value,
-                              }))
-                            }
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
                   {field.type === "checkbox" ? (
                     <label className="flex items-start gap-3 rounded-[18px] border border-zinc-200/80 bg-zinc-50/70 px-4 py-3">
                       <Checkbox
@@ -211,9 +228,7 @@ export function ParticipantDetailsForm({
                     </label>
                   ) : null}
 
-                  {field.helperText && field.type !== "checkbox" ? (
-                    <p className="text-[12px] text-zinc-500">{field.helperText}</p>
-                  ) : null}
+                  {field.type !== "checkbox" ? helperText : null}
                 </div>
               );
             })}

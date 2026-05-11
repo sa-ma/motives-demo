@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { FieldLayout } from "@/components/studies/study-field";
@@ -60,8 +60,45 @@ export function StudyForm() {
     },
   });
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (createStudyMutation.isPending) {
+      return;
+    }
+
+    setError(null);
+
+    if (!title.trim() || !objective.trim() || !audience.trim() || !context.trim()) {
+      setError("Complete the study title, objective, audience, and context.");
+      return;
+    }
+
+    if (topics.length === 0) {
+      setError("Add at least one topic before generating the plan.");
+      return;
+    }
+
+    const parsedTargetParticipants = Number(targetParticipants);
+
+    if (
+      !Number.isInteger(parsedTargetParticipants) ||
+      parsedTargetParticipants < 1 ||
+      parsedTargetParticipants > 50
+    ) {
+      setError("Choose a target participant count between 1 and 50.");
+      return;
+    }
+
+    createStudyMutation.mutate(undefined, {
+      onError: () => {
+        setError("We couldn't create the study right now. Please try again.");
+      },
+    });
+  }
+
   return (
-    <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
+    <form className="space-y-4" onSubmit={handleSubmit}>
       <FieldLayout
         id="study-title"
         label="Study Title"
@@ -170,39 +207,9 @@ export function StudyForm() {
       ) : null}
 
       <Button
-        type="button"
+        type="submit"
         size="lg"
         disabled={createStudyMutation.isPending}
-        onClick={() => {
-          setError(null);
-
-          if (!title.trim() || !objective.trim() || !audience.trim() || !context.trim()) {
-            setError("Complete the study title, objective, audience, and context.");
-            return;
-          }
-
-          if (topics.length === 0) {
-            setError("Add at least one topic before generating the plan.");
-            return;
-          }
-
-          const parsedTargetParticipants = Number(targetParticipants);
-
-          if (
-            !Number.isInteger(parsedTargetParticipants) ||
-            parsedTargetParticipants < 1 ||
-            parsedTargetParticipants > 50
-          ) {
-            setError("Choose a target participant count between 1 and 50.");
-            return;
-          }
-
-          createStudyMutation.mutate(undefined, {
-            onError: () => {
-              setError("We couldn't create the study right now. Please try again.");
-            },
-          });
-        }}
         className="h-14 w-full rounded-md bg-primary text-[15px] font-semibold text-white shadow-[0_24px_48px_-24px_rgba(29,78,216,0.55)] hover:bg-primary/90"
       >
         <Sparkles className="size-4" />

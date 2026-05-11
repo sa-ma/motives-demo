@@ -3,9 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@motives-ai/contracts/client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock3, Ellipsis, PenLine, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock3, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 
 import type {
   StudyDetail as StudyDetailModel,
@@ -16,6 +16,7 @@ import { EditTopicsDialog } from "@/components/studies/edit-topics-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { browserApiClient } from "@/lib/api/client";
+import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
 import { cn } from "@/lib/utils";
 
 function PlanColumn({
@@ -285,10 +286,12 @@ export function InterviewPlanPage({
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const hasStartedInitialGeneration = useRef(false);
   const studyDetailQuery = useQuery({
     queryKey: ["study-detail", studyId],
     queryFn: () => browserApiClient.studies.detail(studyId),
     initialData: initialStudyDetail,
+    staleTime: SERVER_RENDERED_QUERY_STALE_TIME_MS,
   });
   const planQuery = useQuery({
     queryKey: ["study-plan", studyId],
@@ -304,15 +307,15 @@ export function InterviewPlanPage({
       }
     },
     initialData: plan,
+    staleTime: SERVER_RENDERED_QUERY_STALE_TIME_MS,
   });
-  const [editablePlan, setEditablePlan] = useState(planQuery.data);
   const [isEditTopicsOpen, setIsEditTopicsOpen] = useState(false);
   const [editTopicsSession, setEditTopicsSession] = useState(0);
-  const [hasAutoGenerationStarted, setHasAutoGenerationStarted] = useState(false);
   const [generationMode, setGenerationMode] = useState<"initial" | "regenerate" | null>(
     autoGenerateOnMount && !plan ? "initial" : null,
   );
   const [error, setError] = useState<string | null>(null);
+  const editablePlan = planQuery.data ?? null;
   const updatePlanMutation = useMutation({
     mutationFn: (nextPlan: StudyPlanModel) =>
       browserApiClient.plans.update(studyId, {
@@ -324,14 +327,12 @@ export function InterviewPlanPage({
       }),
     onSuccess: (nextPlan) => {
       queryClient.setQueryData(["study-plan", studyId], nextPlan);
-      setEditablePlan(nextPlan);
     },
   });
   const regeneratePlanMutation = useMutation({
     mutationFn: () => browserApiClient.plans.generate(studyId),
     onSuccess: (nextPlan) => {
       queryClient.setQueryData(["study-plan", studyId], nextPlan);
-      setEditablePlan(nextPlan);
       setError(null);
       setGenerationMode(null);
     },
@@ -367,22 +368,16 @@ export function InterviewPlanPage({
   });
 
   useEffect(() => {
-    setEditablePlan(planQuery.data);
-  }, [planQuery.data]);
-
-  useEffect(() => {
     if (
       !autoGenerateOnMount ||
-      hasAutoGenerationStarted ||
+      hasStartedInitialGeneration.current ||
       editablePlan ||
       regeneratePlanMutation.isPending
     ) {
       return;
     }
 
-    setHasAutoGenerationStarted(true);
-    setGenerationMode("initial");
-    setError(null);
+    hasStartedInitialGeneration.current = true;
 
     regeneratePlanMutation.mutate(undefined, {
       onSuccess: () => {
@@ -397,7 +392,6 @@ export function InterviewPlanPage({
   }, [
     autoGenerateOnMount,
     editablePlan,
-    hasAutoGenerationStarted,
     regeneratePlanMutation,
     router,
     studyId,
@@ -423,7 +417,7 @@ export function InterviewPlanPage({
     return (
       <div className="flex min-h-full items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))] px-4 py-10">
         <div className="rounded-3xl border border-rose-100 bg-rose-50 px-6 py-8 text-center text-sm text-rose-700">
-          We couldn't load the interview plan right now.
+          We couldn&apos;t load the interview plan right now.
         </div>
       </div>
     );
@@ -434,7 +428,7 @@ export function InterviewPlanPage({
       <InitialPlanGenerationState
         canRetry={!planGenerationPending && canRegeneratePlan}
         error={error}
-        isGenerating={planGenerationPending}
+        isGenerating={planGenerationPending || generationMode === "initial"}
         onRetry={() => {
           setGenerationMode("initial");
           setError(null);

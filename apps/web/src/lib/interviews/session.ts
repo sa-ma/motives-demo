@@ -71,7 +71,7 @@ export async function updateInterviewSession(
   });
 }
 
-export async function clearInterviewSession(_inviteCode: string) {
+export async function clearInterviewSession() {
   return;
 }
 

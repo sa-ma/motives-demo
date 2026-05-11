@@ -3,7 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
 
-import type { ListStudiesQuery, StudyListSort, StudyListStatusFilter } from "@motives-ai/contracts";
+import type {
+  ListStudiesQuery,
+  StudyListSort,
+  StudyListStatusFilter,
+  StudySummary,
+} from "@motives-ai/contracts";
 
 import { StudiesEmptyState } from "@/components/studies/studies-empty-state";
 import { StudySummaryCard } from "@/components/studies/study-summary-card";
@@ -12,6 +17,9 @@ import {
   type StudiesToolbarTab,
 } from "@/components/studies/studies-toolbar";
 import { browserApiClient } from "@/lib/api/client";
+import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
+
+const defaultStudiesSort: StudyListSort = "updated-desc";
 
 function mapSelectedTabToStatus(tab: StudiesToolbarTab): StudyListStatusFilter | undefined {
   switch (tab) {
@@ -26,24 +34,37 @@ function mapSelectedTabToStatus(tab: StudiesToolbarTab): StudyListStatusFilter |
   }
 }
 
-export function StudiesPage() {
+export function StudiesPage({
+  initialStudies,
+}: {
+  initialStudies?: StudySummary[] | null;
+}) {
   const [searchValue, setSearchValue] = useState("");
   const [selectedTab, setSelectedTab] = useState<StudiesToolbarTab>("All Studies");
-  const [sort, setSort] = useState<StudyListSort>("updated-desc");
+  const [sort, setSort] = useState<StudyListSort>(defaultStudiesSort);
   const deferredSearchValue = useDeferredValue(searchValue);
   const listQuery: ListStudiesQuery = {
     q: deferredSearchValue.trim() || undefined,
     sort,
     status: mapSelectedTabToStatus(selectedTab),
   };
+  const isDefaultQuery =
+    selectedTab === "All Studies" &&
+    deferredSearchValue.trim().length === 0 &&
+    sort === defaultStudiesSort;
   const studiesQuery = useQuery({
+    initialData:
+      isDefaultQuery && initialStudies ? initialStudies : undefined,
     placeholderData: (previousData) => previousData,
     queryKey: ["studies", listQuery],
     queryFn: () => browserApiClient.studies.list(listQuery),
+    staleTime: SERVER_RENDERED_QUERY_STALE_TIME_MS,
   });
   const studies = studiesQuery.data ?? [];
   const hasActiveFilters =
-    selectedTab !== "All Studies" || searchValue.trim().length > 0 || sort !== "updated-desc";
+    selectedTab !== "All Studies" ||
+    searchValue.trim().length > 0 ||
+    sort !== defaultStudiesSort;
 
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,253,0.98))]">
@@ -78,7 +99,7 @@ export function StudiesPage() {
                 ? () => {
                     setSearchValue("");
                     setSelectedTab("All Studies");
-                    setSort("updated-desc");
+                    setSort(defaultStudiesSort);
                   }
                 : undefined
             }

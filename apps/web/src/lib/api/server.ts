@@ -1,9 +1,11 @@
 import { ApiError, createApiClient } from "@motives-ai/contracts/client";
 import type {
+  ListStudiesQuery,
   PublicInterviewRouteState,
   SessionDebriefResponse,
   StudyDetail,
   StudyPlan,
+  StudySummary,
 } from "@motives-ai/contracts";
 
 function getServerApiBaseUrl() {
@@ -31,6 +33,12 @@ export async function getInitialStudyDetail(studyId: string): Promise<StudyDetai
 
     throw error;
   }
+}
+
+export async function getInitialStudies(
+  query: ListStudiesQuery = {},
+): Promise<StudySummary[]> {
+  return getServerApiClient().studies.list(query);
 }
 
 export async function getInitialStudyPlan(studyId: string): Promise<StudyPlan | null> {

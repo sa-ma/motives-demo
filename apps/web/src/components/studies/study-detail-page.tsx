@@ -10,7 +10,6 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
-  Ellipsis,
   ExternalLink,
   Flag,
   MessageSquareMore,
@@ -33,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { browserApiClient } from "@/lib/api/client";
+import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
 import { cn } from "@/lib/utils";
 
 const metricToneClasses: Record<StudyMetricCard["tone"], string> = {
@@ -349,6 +349,7 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
     queryKey: ["study-detail", initialStudy.studyId],
     queryFn: () => browserApiClient.studies.detail(initialStudy.studyId),
     initialData: initialStudy,
+    staleTime: SERVER_RENDERED_QUERY_STALE_TIME_MS,
   });
   const startInterviewMutation = useMutation({
     mutationFn: () => browserApiClient.invites.create(initialStudy.studyId),
