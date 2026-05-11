@@ -1,0 +1,23 @@
+apps/web/src/app/(app)/studies/[studyId]/interviews/[sessionId]/debrief/page.tsx
+  s_6259b15a79edeb::t_3efe3979094f57 4-8,12,15,18-22,74-79
+apps/web/src/components/interviews/interview-debrief-page.tsx
+  s_6259b15a79edeb::t_3efe3979094f57 18,24-28,90-100,131,133-136,201,204,206-207,213-214,217,219-220,229,251,268-274,565-566,569,572-588,590-596,603,605
+apps/web/src/components/interviews/interview-debrief-transcript-panel.tsx
+  s_6259b15a79edeb::t_3efe3979094f57 1-338
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "678f33a4312d2634191bbc00a3d7199f9840e600",
+  "prompts": {},
+  "sessions": {
+    "s_6259b15a79edeb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1641-46db-72e3-8014-0802a4b89173",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
