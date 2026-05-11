@@ -1,0 +1,19 @@
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_78014f6964d2ee::t_c58fc71003d924 411-412,608,612,614,628-630
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "afc19c9abe44081b9bee029ee835afc53a55d324",
+  "prompts": {},
+  "sessions": {
+    "s_78014f6964d2ee": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e167c-cc84-7051-82a0-6f85ad985b31",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
