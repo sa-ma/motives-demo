@@ -1,0 +1,26 @@
+apps/web/src/components/studies/topic-chip-list.tsx
+  s_e20b9b7821a25a::t_9095575029ee6f 10,16,20-36
+apps/web/src/components/studies/study-field.tsx
+  s_e20b9b7821a25a::t_4809fc805e16b5 12,23,28-45,47-49
+apps/web/src/components/studies/study-form.tsx
+  s_e20b9b7821a25a::t_b4c8b470fb011b 5-11,21,27,33-35,37,42,58-63,65-68,123-126,128-130,154-164,166,249-262,274-304
+  s_e20b9b7821a25a::t_fcb6004068fdcb 4,36,38-41,52-54,64,127,131-153,165,167-178,191,206,222,238,247-248,265,305-307,326
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_e20b9b7821a25a::t_6805dbd060238b 319-323,337,340-343,345-353,391,397,401,412-413,421,436,438,442,484,501,503,549
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "6e516e04ebe99f7a88bf246f2ee2abbd663d5fbc",
+  "prompts": {},
+  "sessions": {
+    "s_e20b9b7821a25a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e164b-c379-7783-aca6-a525099dba51",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
