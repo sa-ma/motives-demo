@@ -1,0 +1,22 @@
+apps/web/README.md
+  s_0010fd22d41d6d::t_8a7e65574e3b1c 1,3
+README.md
+  s_0010fd22d41d6d::t_8a7e65574e3b1c 2,4-123,126-181
+  s_0010fd22d41d6d::t_2766f42f19b42b 124-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "5afbde35178aca379ff972a06597d193ddfc298e",
+  "prompts": {},
+  "sessions": {
+    "s_0010fd22d41d6d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1678-7520-7632-ad17-5a5d3838c46d",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
