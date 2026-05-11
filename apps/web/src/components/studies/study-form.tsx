@@ -1,8 +1,14 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { Plus, Sparkles } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { FieldLayout } from "@/components/studies/study-field";
@@ -12,18 +18,28 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { browserApiClient } from "@/lib/api/client";
 
-const initialTopics = [
+const demoTopics = [
   "Onboarding experience",
   "Emotional drivers",
   "Trust",
 ];
 
-const studyCopy = {
+const demoStudyDefaults = {
   title: "Why do Gen Z users abandon budgeting apps?",
   objective:
     "Understand the emotional and practical reasons Gen Z users stop using budgeting apps after onboarding.",
   audience: "Gen Z (18–25), US, used budgeting app in last 6 months",
   context: "Mobile budgeting apps like Mint, YNAB, PocketGuard, etc.",
+  targetParticipants: "5",
+};
+
+const fieldPlaceholders = {
+  title: "Why do Gen Z users abandon budgeting apps?",
+  objective: "Describe what you want to learn from the interviews.",
+  audience: "Who should participate in this study?",
+  context: "What product, workflow, or market context should the interviewer know?",
+  topic: "Add a must-cover topic",
+  targetParticipants: demoStudyDefaults.targetParticipants,
 };
 
 const maxLengths = {
@@ -31,18 +47,25 @@ const maxLengths = {
   objective: 600,
   audience: 200,
   context: 200,
-  topics: 200,
 };
+
+const maxTopics = 12;
+const maxTopicLength = 100;
 
 export function StudyForm() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const [title, setTitle] = useState(studyCopy.title);
-  const [objective, setObjective] = useState(studyCopy.objective);
-  const [audience, setAudience] = useState(studyCopy.audience);
-  const [context, setContext] = useState(studyCopy.context);
-  const [topics, setTopics] = useState(initialTopics);
-  const [targetParticipants, setTargetParticipants] = useState("5");
+  const topicInputRef = useRef<HTMLInputElement | null>(null);
+  const [title, setTitle] = useState(demoStudyDefaults.title);
+  const [objective, setObjective] = useState(demoStudyDefaults.objective);
+  const [audience, setAudience] = useState(demoStudyDefaults.audience);
+  const [context, setContext] = useState(demoStudyDefaults.context);
+  const [topics, setTopics] = useState<string[]>(demoTopics);
+  const [newTopic, setNewTopic] = useState("");
+  const [isAddingTopic, setIsAddingTopic] = useState(false);
+  const [targetParticipants, setTargetParticipants] = useState(
+    demoStudyDefaults.targetParticipants,
+  );
   const [error, setError] = useState<string | null>(null);
   const createStudyMutation = useMutation({
     mutationFn: async () =>
@@ -97,6 +120,62 @@ export function StudyForm() {
     });
   }
 
+  useEffect(() => {
+    if (!isAddingTopic) {
+      return;
+    }
+
+    topicInputRef.current?.focus();
+  }, [isAddingTopic]);
+
+  function handleAddTopic() {
+    const nextTopic = newTopic.trim();
+
+    if (!nextTopic) {
+      return;
+    }
+
+    if (nextTopic.length > maxTopicLength) {
+      setError(`Keep each topic under ${maxTopicLength} characters.`);
+      return;
+    }
+
+    if (topics.length >= maxTopics) {
+      setError(`You can add up to ${maxTopics} must-cover topics.`);
+      return;
+    }
+
+    if (topics.some((topic) => topic.toLowerCase() === nextTopic.toLowerCase())) {
+      setError("That topic is already on the list.");
+      return;
+    }
+
+    setTopics((currentTopics) => [...currentTopics, nextTopic]);
+    setNewTopic("");
+    setIsAddingTopic(false);
+    setError(null);
+  }
+
+  function handleShowTopicInput() {
+    setError(null);
+    setIsAddingTopic(true);
+  }
+
+  function handleCancelTopic() {
+    setNewTopic("");
+    setIsAddingTopic(false);
+    setError(null);
+  }
+
+  function handleTopicKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    handleAddTopic();
+  }
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <FieldLayout
@@ -109,6 +188,7 @@ export function StudyForm() {
           id="study-title"
           maxLength={maxLengths.title}
           value={title}
+          placeholder={fieldPlaceholders.title}
           onChange={(event) => setTitle(event.target.value)}
         />
       </FieldLayout>
@@ -123,6 +203,7 @@ export function StudyForm() {
           id="study-objective"
           maxLength={maxLengths.objective}
           value={objective}
+          placeholder={fieldPlaceholders.objective}
           onChange={(event) => setObjective(event.target.value)}
           className="min-h-32"
         />
@@ -138,6 +219,7 @@ export function StudyForm() {
           id="target-audience"
           maxLength={maxLengths.audience}
           value={audience}
+          placeholder={fieldPlaceholders.audience}
           onChange={(event) => setAudience(event.target.value)}
         />
       </FieldLayout>
@@ -153,6 +235,7 @@ export function StudyForm() {
             id="product-context"
             maxLength={maxLengths.context}
             value={context}
+            placeholder={fieldPlaceholders.context}
             onChange={(event) => setContext(event.target.value)}
             className="min-h-22"
           />
@@ -161,20 +244,67 @@ export function StudyForm() {
         <FieldLayout
           id="must-cover-topics"
           label="Must-cover Topics"
-          count={topics.join(", ").length}
-          maxLength={maxLengths.topics}
+          count={topics.length}
+          maxLength={maxTopics}
+          labelAction={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleShowTopicInput}
+              disabled={topics.length >= maxTopics || isAddingTopic}
+              aria-expanded={isAddingTopic}
+              className="h-auto px-0 text-[12px] font-semibold text-primary hover:bg-transparent hover:text-primary/80"
+            >
+              <Plus className="size-3.5" />
+              Add topic
+            </Button>
+          }
           useLabel={false}
         >
-          <div role="group" aria-labelledby="must-cover-topics-label">
+          <div role="group" aria-labelledby="must-cover-topics-label" className="space-y-2.5">
             <TopicChipList
               topics={topics}
-              hiddenCount={2}
               onRemove={(topic) =>
                 setTopics((currentTopics) =>
                   currentTopics.filter((currentTopic) => currentTopic !== topic),
                 )
               }
             />
+            {isAddingTopic ? (
+              <div className="flex gap-2">
+                <Input
+                  id="must-cover-topics"
+                  ref={topicInputRef}
+                  value={newTopic}
+                  maxLength={maxTopicLength}
+                  placeholder={fieldPlaceholders.topic}
+                  onChange={(event) => setNewTopic(event.target.value)}
+                  onKeyDown={handleTopicKeyDown}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={handleAddTopic}
+                  className="shrink-0"
+                >
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="lg"
+                  onClick={handleCancelTopic}
+                  className="shrink-0"
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : null}
+            <p className="text-[12px] leading-5 text-zinc-500">
+              Add up to {maxTopics} topics the interviewer must cover.
+            </p>
           </div>
         </FieldLayout>
       </div>
@@ -193,6 +323,7 @@ export function StudyForm() {
           max={50}
           inputMode="numeric"
           value={targetParticipants}
+          placeholder={fieldPlaceholders.targetParticipants}
           onChange={(event) => setTargetParticipants(event.target.value)}
         />
         <p className="text-[12px] leading-5 text-zinc-500">

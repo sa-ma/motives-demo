@@ -316,6 +316,11 @@ export function InterviewPlanPage({
   );
   const [error, setError] = useState<string | null>(null);
   const editablePlan = planQuery.data ?? null;
+  const setGeneratedPlan = (nextPlan: StudyPlanModel) => {
+    queryClient.setQueryData(["study-plan", studyId], nextPlan);
+    setError(null);
+    setGenerationMode(null);
+  };
   const updatePlanMutation = useMutation({
     mutationFn: (nextPlan: StudyPlanModel) =>
       browserApiClient.plans.update(studyId, {
@@ -329,12 +334,23 @@ export function InterviewPlanPage({
       queryClient.setQueryData(["study-plan", studyId], nextPlan);
     },
   });
+  const initialPlanGenerationMutation = useMutation({
+    mutationFn: () => browserApiClient.plans.generate(studyId),
+    onSuccess: (nextPlan) => {
+      setGeneratedPlan(nextPlan);
+      router.replace(`/studies/${studyId}/plan`);
+    },
+    onError: () => {
+      setGenerationMode(null);
+      setError(
+        "We couldn't generate the plan right now. Your study was created, but no draft was saved.",
+      );
+    },
+  });
   const regeneratePlanMutation = useMutation({
     mutationFn: () => browserApiClient.plans.generate(studyId),
     onSuccess: (nextPlan) => {
-      queryClient.setQueryData(["study-plan", studyId], nextPlan);
-      setError(null);
-      setGenerationMode(null);
+      setGeneratedPlan(nextPlan);
     },
     onError: () => {
       setGenerationMode(null);
@@ -372,27 +388,17 @@ export function InterviewPlanPage({
       !autoGenerateOnMount ||
       hasStartedInitialGeneration.current ||
       editablePlan ||
-      regeneratePlanMutation.isPending
+      initialPlanGenerationMutation.isPending
     ) {
       return;
     }
 
     hasStartedInitialGeneration.current = true;
-
-    regeneratePlanMutation.mutate(undefined, {
-      onSuccess: () => {
-        router.replace(`/studies/${studyId}/plan`);
-      },
-      onError: () => {
-        setError(
-          "We couldn't generate the plan right now. Your study was created, but no draft was saved.",
-        );
-      },
-    });
+    initialPlanGenerationMutation.mutate();
   }, [
     autoGenerateOnMount,
     editablePlan,
-    regeneratePlanMutation,
+    initialPlanGenerationMutation,
     router,
     studyId,
   ]);
@@ -403,7 +409,8 @@ export function InterviewPlanPage({
   const canRegeneratePlan = studyDetailQuery.data?.canRegeneratePlan ?? true;
   const canStartInterview = studyDetailQuery.data?.canStartInterview ?? false;
   const studyEnded = studyDetailQuery.data?.status === "completed";
-  const planGenerationPending = regeneratePlanMutation.isPending;
+  const initialPlanGenerationPending = initialPlanGenerationMutation.isPending;
+  const regenerationPending = regeneratePlanMutation.isPending;
   const estimatedDurationLabel =
     editablePlan?.estimatedDurationLabel ??
     studyDetailQuery.data?.metadata.interviewDurationLabel ??
@@ -411,7 +418,7 @@ export function InterviewPlanPage({
   const actionButtonsDisabled =
     approvePlanMutation.isPending ||
     launchInterviewMutation.isPending ||
-    planGenerationPending;
+    regenerationPending;
 
   if (planQuery.isError) {
     return (
@@ -426,22 +433,13 @@ export function InterviewPlanPage({
   if (!editablePlan) {
     return (
       <InitialPlanGenerationState
-        canRetry={!planGenerationPending && canRegeneratePlan}
+        canRetry={!initialPlanGenerationPending && canRegeneratePlan}
         error={error}
-        isGenerating={planGenerationPending || generationMode === "initial"}
+        isGenerating={initialPlanGenerationPending || generationMode === "initial"}
         onRetry={() => {
           setGenerationMode("initial");
           setError(null);
-          regeneratePlanMutation.mutate(undefined, {
-            onSuccess: () => {
-              router.replace(`/studies/${studyId}/plan`);
-            },
-            onError: () => {
-              setError(
-                "We couldn't generate the plan right now. Your study was created, but no draft was saved.",
-              );
-            },
-          });
+          initialPlanGenerationMutation.mutate();
         }}
         studyId={studyId}
       />
@@ -483,7 +481,7 @@ export function InterviewPlanPage({
                   size="lg"
                   disabled={
                     !canRegeneratePlan ||
-                    regeneratePlanMutation.isPending ||
+                    regenerationPending ||
                     actionButtonsDisabled
                   }
                   onClick={() => {
@@ -500,9 +498,9 @@ export function InterviewPlanPage({
                   className="rounded-xl border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 shadow-none hover:bg-zinc-50"
                 >
                   <RefreshCcw
-                    className={cn("size-4", regeneratePlanMutation.isPending && "animate-spin")}
+                    className={cn("size-4", regenerationPending && "animate-spin")}
                   />
-                  {regeneratePlanMutation.isPending ? "Regenerating..." : "Regenerate Plan"}
+                  {regenerationPending ? "Regenerating..." : "Regenerate Plan"}
                 </Button>
               </div>
             </div>
@@ -548,7 +546,7 @@ export function InterviewPlanPage({
                     {error}
                   </p>
                 ) : null}
-                {planGenerationPending && generationMode === "regenerate" ? (
+                {regenerationPending && generationMode === "regenerate" ? (
                   <div className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-[13px] text-sky-700">
                     <p className="font-medium text-sky-900">Generating a new draft from your study brief.</p>
                     <p className="mt-1 text-sky-700">
