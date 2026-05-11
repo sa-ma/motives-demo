@@ -1,22 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { InterviewDebriefPage } from "@/components/interviews/interview-debrief-page";
-import { getInitialSessionDebrief, getInitialStudyDetail } from "@/lib/api/server";
+import {
+  getDebriefTab,
+  InterviewDebriefPage,
+} from "@/components/interviews/interview-debrief-page";
+import { getInitialSessionDebrief } from "@/lib/api/server";
 
 export default async function InterviewDebriefRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ studyId: string; sessionId: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { studyId, sessionId } = await params;
-  const study = await getInitialStudyDetail(studyId);
-
-  if (!study) {
-    notFound();
-  }
-
-  const debriefState = await getInitialSessionDebrief(studyId, sessionId);
+  const [{ tab }, debriefState] = await Promise.all([
+    searchParams,
+    getInitialSessionDebrief(studyId, sessionId),
+  ]);
+  const activeTab = getDebriefTab(tab);
 
   if (!debriefState) {
     notFound();
@@ -68,5 +71,10 @@ export default async function InterviewDebriefRoute({
     );
   }
 
-  return <InterviewDebriefPage debrief={debriefState.debrief} />;
+  return (
+    <InterviewDebriefPage
+      activeTab={activeTab}
+      debrief={debriefState.debrief}
+    />
+  );
 }

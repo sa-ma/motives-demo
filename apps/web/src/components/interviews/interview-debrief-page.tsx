@@ -1,15 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Ellipsis,
   FileDown,
   Lightbulb,
-  X,
   Quote,
-  Search,
   ShieldQuestion,
   Sparkles,
   Target,
@@ -19,15 +14,18 @@ import type {
   SessionDebrief as InterviewDebriefModel,
   SessionDebriefEvidenceItem as InterviewDebriefEvidenceItem,
   SessionDebriefReasoningRow as InterviewDebriefReasoningRow,
-  SessionDebriefTranscriptRow as InterviewDebriefTranscriptRow,
 } from "@motives-ai/contracts";
+import { InterviewDebriefTranscriptPanel } from "@/components/interviews/interview-debrief-transcript-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type DebriefTab = "summary" | "transcript" | "coverage" | "ai-reasoning";
+export type DebriefTab =
+  | "summary"
+  | "transcript"
+  | "coverage"
+  | "ai-reasoning";
 
 const tabs: Array<{ id: DebriefTab; label: string }> = [
   { id: "summary", label: "Summary" },
@@ -89,10 +87,17 @@ const reasoningStatusLabels = {
   planned: "Planned",
 } as const;
 
-const speakerClassNames = {
-  ai: "bg-primary/10 text-primary",
-  participant: "bg-emerald-50 text-emerald-700",
-} as const;
+export function getDebriefTab(
+  value: string | string[] | undefined,
+): DebriefTab {
+  const normalizedValue = Array.isArray(value) ? value[0] : value;
+
+  if (tabs.some((tab) => tab.id === normalizedValue)) {
+    return normalizedValue as DebriefTab;
+  }
+
+  return "summary";
+}
 
 function DebriefPageCard({
   children,
@@ -117,36 +122,18 @@ function DebriefSectionHeading({
   icon: Icon,
   title,
   action,
-  hideIcon = false,
-  compactTitle = false,
-  divider = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   action?: React.ReactNode;
-  hideIcon?: boolean;
-  compactTitle?: boolean;
-  divider?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-4 px-5 py-4 sm:px-6",
-        divider && "border-b border-zinc-200/80",
-      )}
-    >
+    <div className="flex items-center justify-between gap-4 px-5 py-4 sm:px-6">
       <div className="flex items-center gap-3">
-        {!hideIcon ? (
-          <div className="flex size-8 items-center justify-center rounded-xl bg-primary/8 text-primary">
-            <Icon className="size-4" />
-          </div>
-        ) : null}
-        <h2
-          className={cn(
-            "font-semibold tracking-tight text-zinc-950",
-            compactTitle ? "text-[0.88rem]" : "text-[0.96rem]",
-          )}
-        >
+        <div className="flex size-8 items-center justify-center rounded-xl bg-primary/8 text-primary">
+          <Icon className="size-4" />
+        </div>
+        <h2 className="text-[0.96rem] font-semibold tracking-tight text-zinc-950">
           {title}
         </h2>
       </div>
@@ -211,22 +198,26 @@ function DebriefHeader({ debrief }: { debrief: InterviewDebriefModel }) {
 
 function DebriefTabs({
   activeTab,
-  onChange,
+  debrief,
 }: {
   activeTab: DebriefTab;
-  onChange: (tab: DebriefTab) => void;
+  debrief: InterviewDebriefModel;
 }) {
+  const basePath = `/studies/${debrief.studyId}/interviews/${debrief.sessionId}/debrief`;
+
   return (
     <div className="overflow-x-auto border-b border-zinc-200/80">
       <div className="grid min-w-full grid-cols-4 px-2 sm:px-4">
         {tabs.map((tab) => {
           const active = tab.id === activeTab;
+          const href =
+            tab.id === "summary" ? basePath : `${basePath}?tab=${tab.id}`;
 
           return (
-            <button
+            <Link
               key={tab.id}
-              type="button"
-              onClick={() => onChange(tab.id)}
+              href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "border-b-2 px-1 py-4 text-center text-[12px] font-medium whitespace-nowrap transition-colors sm:px-2 sm:text-[13px]",
                 active
@@ -235,7 +226,7 @@ function DebriefTabs({
               )}
             >
               {tab.label}
-            </button>
+            </Link>
           );
         })}
       </div>
@@ -257,7 +248,7 @@ function EvidenceListItem({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="min-w-0 flex-1 text-[13px] leading-5 text-zinc-700 sm:truncate">
-          “{evidence.quote}”
+          &ldquo;{evidence.quote}&rdquo;
         </p>
         <div
           className={cn(
@@ -274,11 +265,13 @@ function EvidenceListItem({
 }
 
 function SummaryPanel({ debrief }: { debrief: InterviewDebriefModel }) {
-  const evidenceItems = debrief.summary.evidenceIds
-    .map((evidenceId) =>
-      debrief.evidence.find((item) => item.id === evidenceId),
-    )
-    .filter((item): item is InterviewDebriefEvidenceItem => Boolean(item));
+  const evidenceById = new Map(
+    debrief.evidence.map((item) => [item.id, item] as const),
+  );
+  const evidenceItems = debrief.summary.evidenceIds.flatMap((evidenceId) => {
+    const evidence = evidenceById.get(evidenceId);
+    return evidence ? [evidence] : [];
+  });
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
@@ -387,305 +380,6 @@ function SummaryPanel({ debrief }: { debrief: InterviewDebriefModel }) {
           </DebriefPageCard>
         </div>
       </div>
-    </div>
-  );
-}
-
-function TranscriptEvidencePanel({
-  evidence,
-  onClose,
-  className,
-}: {
-  evidence: InterviewDebriefEvidenceItem;
-  onClose: () => void;
-  className?: string;
-}) {
-  return (
-    <DebriefPageCard className={cn("h-fit lg:sticky lg:top-6", className)}>
-      <DebriefSectionHeading
-        icon={Search}
-        title="Evidence Details"
-        hideIcon
-        compactTitle
-        divider
-        action={
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-zinc-400 transition-colors hover:text-zinc-700"
-            aria-label="Close evidence details"
-          >
-            <X className="size-4" />
-          </button>
-        }
-      />
-      <div className="space-y-5 px-5 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-6">
-        <div>
-          <p className="text-[12px] font-semibold text-zinc-500">
-            Selected Quote
-          </p>
-          <div className="mt-2 rounded-[16px] bg-zinc-50 p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-                <Quote className="size-3.5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] leading-6 text-zinc-700">
-                  “{evidence.quote}”
-                </p>
-                <p className="mt-2 text-right text-[11px] font-medium text-zinc-500">
-                  {evidence.timestamp}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <p className="text-[12px] font-semibold text-zinc-500">Theme</p>
-          <Badge className="mt-2 rounded-full px-3 py-1.5 text-[11px]">
-            {evidence.theme}
-          </Badge>
-        </div>
-
-        <div>
-          <p className="text-[12px] font-semibold text-zinc-500">
-            Why it matters
-          </p>
-          <p className="mt-2 text-[13px] leading-6 text-zinc-700">
-            {evidence.whyItMatters}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-[12px] font-semibold text-zinc-500">
-            AI follow-up
-          </p>
-          <p className="mt-2 text-[13px] leading-6 text-zinc-700">
-            {evidence.followUp}
-          </p>
-        </div>
-      </div>
-    </DebriefPageCard>
-  );
-}
-
-function TranscriptRow({
-  row,
-  evidence,
-  active,
-  onSelect,
-  showSpeakerMeta,
-}: {
-  row: InterviewDebriefTranscriptRow;
-  evidence?: InterviewDebriefEvidenceItem;
-  active: boolean;
-  onSelect: () => void;
-  showSpeakerMeta: boolean;
-}) {
-  const isSelectable = Boolean(evidence);
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={!isSelectable}
-      className={cn(
-        "w-full rounded-[12px] border border-transparent px-4 py-2 text-left transition-colors",
-        row.speaker === "participant" ? "bg-transparent" : "bg-zinc-50/55",
-        isSelectable &&
-          "border-primary/25 hover:border-primary/40 hover:bg-primary/[0.03]",
-        active && "border-primary bg-primary/[0.05]",
-        !isSelectable && "cursor-default",
-      )}
-    >
-      <div className="space-y-1.5 sm:hidden">
-        {showSpeakerMeta ? (
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
-                speakerClassNames[row.speaker],
-              )}
-            >
-              {row.speaker === "ai" ? "AI" : "P"}
-            </span>
-            <p className="min-w-0 text-[12px] font-medium text-zinc-900">
-              {row.speakerLabel}
-            </p>
-          </div>
-        ) : (
-          <div className="flex items-center">
-            <span
-              className={cn(
-                "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
-                speakerClassNames[row.speaker],
-              )}
-            >
-              {row.speaker === "ai" ? "AI" : "P"}
-            </span>
-          </div>
-        )}
-
-        <p className="text-[13px] leading-6 text-zinc-700">{row.text}</p>
-
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-medium text-zinc-500">{row.timestamp}</p>
-          {evidence ? (
-            <Badge className="rounded-lg px-2.5 py-1 text-[11px]">
-              {evidence.label}
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="hidden sm:flex sm:items-start sm:gap-3">
-        <div className="w-16 shrink-0 pt-0.5">
-          <p className="text-[11px] font-medium text-zinc-500">{row.timestamp}</p>
-        </div>
-
-        <div className="shrink-0 pt-0.5">
-          <span
-            className={cn(
-              "inline-flex size-6 items-center justify-center rounded-full text-[10px] font-semibold",
-              speakerClassNames[row.speaker],
-            )}
-          >
-            {row.speaker === "ai" ? "AI" : "P"}
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {showSpeakerMeta ? (
-            <>
-              <p className="text-[12px] font-medium text-zinc-900">
-                {row.speakerLabel}
-              </p>
-              <p className="mt-0.5 text-[13px] leading-6 text-zinc-700">
-                {row.text}
-              </p>
-            </>
-          ) : (
-            <p className="pt-0.5 text-[13px] leading-6 text-zinc-700">
-              {row.text}
-            </p>
-          )}
-        </div>
-
-        {evidence ? (
-          <div className="shrink-0 self-start pt-0.5">
-            <Badge className="rounded-lg px-2.5 py-1 text-[11px]">
-              {evidence.label}
-            </Badge>
-          </div>
-        ) : null}
-      </div>
-    </button>
-  );
-}
-
-function TranscriptPanel({ debrief }: { debrief: InterviewDebriefModel }) {
-  const evidenceById = useMemo(
-    () =>
-      Object.fromEntries(
-        debrief.evidence.map((item) => [item.id, item]),
-      ) as Record<string, InterviewDebriefEvidenceItem>,
-    [debrief.evidence],
-  );
-
-  const defaultEvidenceId =
-    debrief.transcript.find((row) => row.evidenceId)?.evidenceId ?? null;
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState<
-    string | null | undefined
-  >(undefined);
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const syncViewport = () => setIsDesktop(mediaQuery.matches);
-
-    syncViewport();
-    mediaQuery.addEventListener("change", syncViewport);
-
-    return () => mediaQuery.removeEventListener("change", syncViewport);
-  }, []);
-
-  const activeEvidenceId =
-    selectedEvidenceId === undefined
-      ? isDesktop
-        ? defaultEvidenceId
-        : null
-      : selectedEvidenceId;
-
-  const selectedEvidence = activeEvidenceId
-    ? evidenceById[activeEvidenceId]
-    : undefined;
-
-  return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.28fr)_minmax(300px,0.72fr)]">
-      <div>
-        <div className="px-3 py-3 sm:px-4 sm:py-4">
-          <div className="flex items-center gap-3 rounded-[14px] border border-zinc-200 bg-white px-3 py-2.5">
-            <Search className="size-4 text-zinc-400" />
-            <p className="text-[13px] text-zinc-400">Search transcript...</p>
-          </div>
-        </div>
-
-        <div className="max-h-[720px] space-y-1.5 overflow-y-auto px-3 pb-3 sm:px-4 sm:pb-4">
-          {debrief.transcript.map((row, index) => {
-            const evidence = row.evidenceId
-              ? evidenceById[row.evidenceId]
-              : undefined;
-            const previousRow = debrief.transcript[index - 1];
-            const showSpeakerMeta = previousRow?.speaker !== row.speaker;
-
-            return (
-              <TranscriptRow
-                key={row.id}
-                row={row}
-                evidence={evidence}
-                active={row.evidenceId === activeEvidenceId}
-                showSpeakerMeta={showSpeakerMeta}
-                onSelect={() => {
-                  if (row.evidenceId) {
-                    setSelectedEvidenceId(row.evidenceId);
-                  }
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {selectedEvidence ? (
-        <>
-          <TranscriptEvidencePanel
-            evidence={selectedEvidence}
-            onClose={() => setSelectedEvidenceId(null)}
-            className="hidden lg:block"
-          />
-
-          <Dialog
-            open={!isDesktop && Boolean(selectedEvidence)}
-            onOpenChange={(open) => {
-              if (!open) {
-                setSelectedEvidenceId(null);
-              }
-            }}
-          >
-            <DialogContent
-              showCloseButton={false}
-              className="max-w-[calc(100vw-1.5rem)] rounded-[18px] border border-zinc-200/80 bg-white p-0 shadow-[0_30px_80px_-32px_rgba(15,23,42,0.32)] lg:hidden"
-            >
-              <TranscriptEvidencePanel
-                evidence={selectedEvidence}
-                onClose={() => setSelectedEvidenceId(null)}
-                className="border-0 bg-white shadow-none"
-              />
-            </DialogContent>
-          </Dialog>
-        </>
-      ) : null}
     </div>
   );
 }
@@ -868,29 +562,47 @@ function ReasoningPanel({ debrief }: { debrief: InterviewDebriefModel }) {
   );
 }
 
-export function InterviewDebriefPage({
+function DebriefContent({
+  activeTab,
   debrief,
 }: {
+  activeTab: DebriefTab;
   debrief: InterviewDebriefModel;
 }) {
-  const [activeTab, setActiveTab] = useState<DebriefTab>("summary");
+  switch (activeTab) {
+    case "transcript":
+      return (
+        <InterviewDebriefTranscriptPanel
+          evidence={debrief.evidence}
+          transcript={debrief.transcript}
+        />
+      );
+    case "coverage":
+      return <CoveragePanel debrief={debrief} />;
+    case "ai-reasoning":
+      return <ReasoningPanel debrief={debrief} />;
+    case "summary":
+    default:
+      return <SummaryPanel debrief={debrief} />;
+  }
+}
 
+export function InterviewDebriefPage({
+  activeTab,
+  debrief,
+}: {
+  activeTab: DebriefTab;
+  debrief: InterviewDebriefModel;
+}) {
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))]">
       <div className="flex w-full flex-col gap-6 px-4 py-7 sm:px-6 lg:px-6 lg:py-9 xl:px-8 2xl:px-12">
         <DebriefHeader debrief={debrief} />
 
         <DebriefPageCard className="overflow-hidden border-transparent bg-transparent shadow-none">
-          <DebriefTabs activeTab={activeTab} onChange={setActiveTab} />
+          <DebriefTabs activeTab={activeTab} debrief={debrief} />
           <div className="p-4 sm:p-5 lg:p-6">
-            {activeTab === "summary" ? <SummaryPanel debrief={debrief} /> : null}
-            {activeTab === "transcript" ? (
-              <TranscriptPanel debrief={debrief} />
-            ) : null}
-            {activeTab === "coverage" ? <CoveragePanel debrief={debrief} /> : null}
-            {activeTab === "ai-reasoning" ? (
-              <ReasoningPanel debrief={debrief} />
-            ) : null}
+            <DebriefContent activeTab={activeTab} debrief={debrief} />
           </div>
         </DebriefPageCard>
       </div>
