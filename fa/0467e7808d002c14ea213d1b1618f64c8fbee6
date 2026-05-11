@@ -1,0 +1,19 @@
+apps/api/package.json
+  s_4a1ce7a1f74eee::t_1f399fc026ce7d 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "fa0467e7808d002c14ea213d1b1618f64c8fbee6",
+  "prompts": {},
+  "sessions": {
+    "s_4a1ce7a1f74eee": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1694-b543-7f02-9f1e-845c6e79069c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
