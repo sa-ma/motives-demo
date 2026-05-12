@@ -23,6 +23,22 @@ export async function migrateDatabase(databaseUrl: string) {
   }
 }
 
+export async function resetDatabase(databaseUrl: string) {
+  const pool = createPgPool(databaseUrl);
+
+  try {
+    await pool.query("DROP SCHEMA IF EXISTS drizzle CASCADE");
+    await pool.query("DROP SCHEMA IF EXISTS public CASCADE");
+    await pool.query("CREATE SCHEMA public AUTHORIZATION CURRENT_USER");
+    await pool.query("GRANT ALL ON SCHEMA public TO CURRENT_USER");
+    await pool.query("GRANT ALL ON SCHEMA public TO PUBLIC");
+  } finally {
+    await pool.end();
+  }
+
+  await migrateDatabase(databaseUrl);
+}
+
 export async function truncateAllTables(databaseUrl: string) {
   const pool = new Pool({
     connectionString: databaseUrl,

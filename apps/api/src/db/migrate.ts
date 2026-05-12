@@ -9,4 +9,4 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is required to run database migrations.");
 }
 
-void migrateDatabase(databaseUrl);
+await migrateDatabase(databaseUrl);
