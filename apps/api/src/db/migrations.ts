@@ -1,7 +1,14 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
 import { createDatabaseClient, createPgPool } from "./client.js";
+
+const migrationsFolder = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../drizzle",
+);
 
 export async function migrateDatabase(databaseUrl: string) {
   const pool = createPgPool(databaseUrl);
@@ -9,7 +16,7 @@ export async function migrateDatabase(databaseUrl: string) {
   try {
     const db = createDatabaseClient(pool);
     await migrate(db, {
-      migrationsFolder: "drizzle",
+      migrationsFolder,
     });
   } finally {
     await pool.end();
