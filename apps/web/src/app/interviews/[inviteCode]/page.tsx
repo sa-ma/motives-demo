@@ -1,9 +1,4 @@
-import { redirect } from "next/navigation";
-
-import { InterviewInviteState } from "@/components/interviews/invite-state";
-import { getInterviewPath } from "@/lib/interviews/helpers";
-import { getInterviewRouteState } from "@/lib/interviews/session";
-import { getUnavailableCopy } from "@/lib/interviews/unavailable-copy";
+import { resolveInterviewIndexPage } from "@/lib/interviews/route-state";
 
 export default async function InterviewIndexPage({
   params,
@@ -11,40 +6,6 @@ export default async function InterviewIndexPage({
   params: Promise<{ inviteCode: string }>;
 }) {
   const { inviteCode } = await params;
-  const routeState = await getInterviewRouteState(inviteCode);
-
-  if (routeState.kind === "invalid") {
-    return (
-      <InterviewInviteState
-        title="Invite not found"
-        description="This interview link is invalid or no longer exists. Double check the URL or request a new invite."
-      />
-    );
-  }
-
-  if (routeState.kind === "expired") {
-    return (
-      <InterviewInviteState
-        variant="expired"
-        title="This invite has expired"
-        description="The interview window for this participant link has closed. Ask the research team for a fresh invite if you still need to take part."
-      />
-    );
-  }
-
-  if (routeState.kind === "unavailable") {
-    return (
-      <InterviewInviteState
-        variant="unavailable"
-        title="Interview unavailable"
-        description={getUnavailableCopy(routeState.reason)}
-      />
-    );
-  }
-
-  if (routeState.kind === "invite-ready") {
-    redirect(getInterviewPath(routeState.invite.inviteCode, "welcome"));
-  }
-
-  redirect(getInterviewPath(routeState.invite.inviteCode, routeState.session.sessionStatus));
+  const resolvedPage = await resolveInterviewIndexPage(inviteCode);
+  return resolvedPage.content;
 }

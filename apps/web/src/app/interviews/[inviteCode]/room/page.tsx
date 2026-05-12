@@ -1,10 +1,6 @@
-import { redirect } from "next/navigation";
-
-import { InterviewInviteState } from "@/components/interviews/invite-state";
 import { InterviewRoom } from "@/components/interviews/interview-room";
-import { getRedirectPathForStep, toInterviewUIMessage } from "@/lib/interviews/helpers";
-import { getInterviewRouteState } from "@/lib/interviews/session";
-import { getUnavailableCopy } from "@/lib/interviews/unavailable-copy";
+import { toInterviewUIMessage } from "@/lib/interviews/helpers";
+import { resolveInterviewStepPage } from "@/lib/interviews/route-state";
 
 export default async function InterviewRoomPage({
   params,
@@ -12,56 +8,17 @@ export default async function InterviewRoomPage({
   params: Promise<{ inviteCode: string }>;
 }) {
   const { inviteCode } = await params;
-  const routeState = await getInterviewRouteState(inviteCode);
+  const resolvedPage = await resolveInterviewStepPage(inviteCode, "room");
 
-  if (routeState.kind === "invalid") {
-    return (
-      <InterviewInviteState
-        title="Invite not found"
-        description="This interview link is invalid or no longer exists. Double check the URL or request a new invite."
-      />
-    );
-  }
-
-  if (routeState.kind === "expired") {
-    return (
-      <InterviewInviteState
-        variant="expired"
-        title="This invite has expired"
-        description="The interview window for this participant link has closed. Ask the research team for a fresh invite if you still need to take part."
-      />
-    );
-  }
-
-  if (routeState.kind === "unavailable") {
-    return (
-      <InterviewInviteState
-        variant="unavailable"
-        title="Interview unavailable"
-        description={getUnavailableCopy(routeState.reason)}
-      />
-    );
-  }
-
-  if (routeState.kind === "invite-ready") {
-    redirect(`/interviews/${routeState.invite.inviteCode}/welcome`);
-  }
-
-  const redirectPath = getRedirectPathForStep(
-    routeState.invite.inviteCode,
-    routeState.session.sessionStatus,
-    "room",
-  );
-
-  if (redirectPath) {
-    redirect(redirectPath);
+  if (resolvedPage.kind === "terminal") {
+    return resolvedPage.content;
   }
 
   return (
     <InterviewRoom
-      invite={routeState.invite}
-      initialMessages={routeState.session.transcript.map(toInterviewUIMessage)}
-      initialProgressState={routeState.session.progressState}
+      invite={resolvedPage.invite}
+      initialMessages={resolvedPage.session.transcript.map(toInterviewUIMessage)}
+      initialProgressState={resolvedPage.session.progressState}
     />
   );
 }
