@@ -8,6 +8,7 @@ import {
   participantField,
   participantProfile,
   study,
+  studyInvite,
   studyAggregate,
   studyPlanVersion,
   studyTopic,
@@ -32,11 +33,24 @@ async function main() {
         await tx.insert(studyTopic).values(demoStudy.topicInserts);
         await tx.insert(participantField).values(demoStudy.participantFieldInserts);
         await tx.insert(studyPlanVersion).values(demoStudy.planVersionInserts);
-        await tx.insert(interviewSession).values(demoStudy.sessionInserts);
-        await tx.insert(participantProfile).values(demoStudy.profileInserts);
-        await tx.insert(transcriptTurn).values(demoStudy.transcriptInserts);
-        await tx.insert(debriefReport).values(demoStudy.debriefInserts);
-        await tx.insert(studyAggregate).values(demoStudy.aggregateInsert);
+        if (demoStudy.studyInviteInsert) {
+          await tx.insert(studyInvite).values(demoStudy.studyInviteInsert);
+        }
+        if (demoStudy.sessionInserts.length > 0) {
+          await tx.insert(interviewSession).values(demoStudy.sessionInserts);
+        }
+        if (demoStudy.profileInserts.length > 0) {
+          await tx.insert(participantProfile).values(demoStudy.profileInserts);
+        }
+        if (demoStudy.transcriptInserts.length > 0) {
+          await tx.insert(transcriptTurn).values(demoStudy.transcriptInserts);
+        }
+        if (demoStudy.debriefInserts.length > 0) {
+          await tx.insert(debriefReport).values(demoStudy.debriefInserts);
+        }
+        if (demoStudy.aggregateInsert) {
+          await tx.insert(studyAggregate).values(demoStudy.aggregateInsert);
+        }
       }
     });
 

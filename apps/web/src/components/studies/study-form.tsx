@@ -20,22 +20,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { browserApiClient } from "@/lib/api/client";
 
 const demoTopics = [
-  "Onboarding experience",
-  "Emotional drivers",
-  "Trust",
+  "First trial trigger",
+  "Perceived value",
+  "Repeat purchase barrier",
 ];
 
 const demoStudyDefaults = {
-  title: "Why do Gen Z users abandon budgeting apps?",
+  title: "Why are first-time buyers not reordering our barrier repair serum?",
   objective:
-    "Understand the emotional and practical reasons Gen Z users stop using budgeting apps after onboarding.",
-  audience: "Gen Z (18–25), US, used budgeting app in last 6 months",
-  context: "Mobile budgeting apps like Mint, YNAB, PocketGuard, etc.",
+    "Understand what prevents first-time serum buyers from building our product into their routine and placing a second order.",
+  audience: "US adults 25-44 who bought a prestige skincare serum in the last 90 days",
+  context:
+    "Our skincare brand launched a barrier repair serum and wants to learn why trial is not turning into repeat purchase.",
   targetParticipants: "5",
 };
 
 const fieldPlaceholders = {
-  title: "Why do Gen Z users abandon budgeting apps?",
+  title: "Why are first-time buyers not reordering our barrier repair serum?",
   objective: "Describe what you want to learn from the interviews.",
   audience: "Who should participate in this study?",
   context: "What product, workflow, or market context should the interviewer know?",
