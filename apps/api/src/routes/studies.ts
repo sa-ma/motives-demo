@@ -41,18 +41,20 @@ import {
 
 import {
   approveStudyPlan,
+  getStudyPlan,
+  getStudyPlanGenerationStatus,
+  requestStudyPlanGeneration,
+  updateStudyPlan,
+} from "../lib/plans/service.js";
+import {
   archiveStudy,
   createStudy,
   createStudyInvite,
   endStudy,
   getStudySessionDebrief,
   getStudyDetail,
-  getStudyPlan,
-  getStudyPlanGenerationStatus,
   listStudies,
-  requestStudyPlanGeneration,
-  updateStudyPlan,
-} from "../lib/store.js";
+} from "../lib/studies/service.js";
 import { commonErrorResponses } from "../schemas/http.js";
 
 const StudyIdParamsSchema = Type.Object({

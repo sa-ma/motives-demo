@@ -1,6 +1,6 @@
 import type { AppDatabase } from "../db/client.js";
 import type { ResearchAiService } from "../ai/research-service.js";
-import { processNextAnalysisJob } from "./store.js";
+import { processNextAnalysisJob } from "./analysis/worker.js";
 
 type LoggerLike = {
   error: (payload: unknown, message?: string) => void;

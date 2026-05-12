@@ -21,7 +21,7 @@ import {
   getPublicInterviewRouteState,
   performPublicInterviewAction,
   preparePublicInterviewChatTurn,
-} from "../lib/store.js";
+} from "../lib/public-interviews/service.js";
 import { ApiError } from "../lib/errors.js";
 import {
   advanceInterviewProgressStateAfterSkip,
