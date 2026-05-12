@@ -1,0 +1,32 @@
+apps/web/src/app/interviews/[inviteCode]/complete/page.tsx
+  s_7b7545762f3004::t_0a32181911aa8a 3,14,16-17
+apps/web/src/app/interviews/[inviteCode]/room/page.tsx
+  s_7b7545762f3004::t_0a32181911aa8a 2-3,11,13-14,19-21
+apps/web/src/app/interviews/[inviteCode]/welcome/page.tsx
+  s_7b7545762f3004::t_0a32181911aa8a 3,11,13-14,19
+apps/web/src/app/interviews/[inviteCode]/details/page.tsx
+  s_7b7545762f3004::t_0a32181911aa8a 3,11,13-14,20-21
+apps/web/src/app/interviews/[inviteCode]/page.tsx
+  s_7b7545762f3004::t_0a32181911aa8a 1,9-10
+apps/web/src/lib/interviews/route-state.tsx
+  s_7b7545762f3004::t_773dcad99ecea0 1-34,41,53-77,88-94,97-121,124-145
+  s_7b7545762f3004::t_e4c573aa2eee78 35-40,42-52,78-87,95-96,122-123
+apps/web/src/app/interviews/[inviteCode]/preparing/page.tsx
+  s_7b7545762f3004::t_0a32181911aa8a 3,11,13-14,19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "d3dda4908a08cf7aebfdd9813fcca18b84f90fda",
+  "prompts": {},
+  "sessions": {
+    "s_7b7545762f3004": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1e75-f159-7e62-bddb-541867bbdd55",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
