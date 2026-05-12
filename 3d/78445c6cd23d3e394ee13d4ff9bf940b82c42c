@@ -1,0 +1,21 @@
+apps/api/src/db/migrations.ts
+  s_ee8f5dc2e9fdac::t_dbee85029aff17 1-2,8-12,19
+apps/api/package.json
+  s_ee8f5dc2e9fdac::t_dd1838f82a1cf4 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "3d78445c6cd23d3e394ee13d4ff9bf940b82c42c",
+  "prompts": {},
+  "sessions": {
+    "s_ee8f5dc2e9fdac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1c0e-27fb-7ef1-9e5c-2317f07409f7",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
