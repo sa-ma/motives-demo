@@ -1,0 +1,19 @@
+apps/api/src/demo/demo-studies.test.ts
+  s_6ec4795693dabd::t_8cd0abcc562486 12,16-17,27-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "6c7f22c2b4f09667c6bb9fd3a4dad94d453cba30",
+  "prompts": {},
+  "sessions": {
+    "s_6ec4795693dabd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1e5b-a212-7422-ae49-d2881cbf7b78",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
