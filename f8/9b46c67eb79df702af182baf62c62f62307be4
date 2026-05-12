@@ -1,0 +1,39 @@
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_9916e8ec374797::t_c193c7336acca4 602-609
+  s_9916e8ec374797::t_3168793a5337d7 6,356,458-474
+  s_9916e8ec374797::t_db8043097e449a 490
+apps/api/src/ai/research-prompts.test.ts
+  s_9916e8ec374797::t_e75799c6b5eec8 1-52
+apps/api/src/ai/research-service.ts
+  s_9916e8ec374797::t_82edda358f1607 9-10,15-16,19-20,114,117,119-132,138-144
+apps/api/src/app.test.ts
+  s_9916e8ec374797::t_49773bd9e2a9ae 248-265,267-306,1375-1407,1433-1449,1451-1458
+  s_9916e8ec374797::t_8ccd590a95c8c3 1408,1416-1432
+  s_9916e8ec374797::t_ae1c3ac61c726b 1450
+  s_9916e8ec374797::t_1f26701f2f6658 3,1409-1415
+  s_9916e8ec374797::t_7b9c36d1701296 266
+apps/api/src/lib/study-plan-validation.ts
+  s_9916e8ec374797::t_e426de9099c6d6 58
+apps/api/src/lib/store.ts
+  s_9916e8ec374797::t_76ee5079875ecf 858,860-862,867,869-870,2007
+apps/api/src/ai/research-schemas.ts
+  s_9916e8ec374797::t_833dfb98f099c6 6-158,161-168,170
+apps/api/src/ai/research-prompts.ts
+  s_9916e8ec374797::t_4de707a6cb5700 69,74-111,113,116-120,126,134,137,140-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "f89b46c67eb79df702af182baf62c62f62307be4",
+  "prompts": {},
+  "sessions": {
+    "s_9916e8ec374797": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1945-ca61-71d0-aaf7-517e91fee43a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
