@@ -1,0 +1,31 @@
+apps/api/package.json
+  s_3b2752d48978e8::t_4e8f5e9a2cb4f6 17
+scripts/reset-db.mjs
+  s_3b2752d48978e8::t_470238d62e5dfc 1-2,5-9,24-50,71-73
+  s_3b2752d48978e8::t_4e8f5e9a2cb4f6 3-4,10-23,51-70
+apps/api/src/db/migrate.ts
+  s_3b2752d48978e8::t_4b8fa72386528c 12
+apps/api/src/db/migrations.ts
+  s_3b2752d48978e8::t_3c26f64ee358ae 30
+  s_3b2752d48978e8::t_26037264a1ccba 26-29,31-41
+apps/api/src/db/reset.ts
+  s_3b2752d48978e8::t_4e8f5e9a2cb4f6 1-56
+package.json
+  s_3b2752d48978e8::t_470238d62e5dfc 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "554f75dc6fc42acb943f8ddecdbfaeeddabd9e57",
+  "prompts": {},
+  "sessions": {
+    "s_3b2752d48978e8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1e6a-1de8-7220-9ac6-a408fd23e3b3",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
