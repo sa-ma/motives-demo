@@ -179,8 +179,18 @@ export const generatedStudyPlanOutputJsonSchema =
 
 export const DebriefThemeSchema = Type.Object(
   {
-    label: Type.String(),
-    score: Type.Number(),
+    label: Type.String({
+      description:
+        "A short research theme label, not a full sentence. Keep it concise enough to fit in the debrief UI.",
+      minLength: 3,
+      maxLength: 60,
+    }),
+    score: Type.Integer({
+      description:
+        "Theme intensity on a fixed UI scale. Use 4 for high, 3 for medium, and 2 for low.",
+      minimum: 2,
+      maximum: 4,
+    }),
     strength: Type.Union([
       Type.Literal("high"),
       Type.Literal("medium"),

@@ -17,6 +17,7 @@ import {
   upsertStudyAggregate,
 } from "../../db/repositories/studies.js";
 import { ApiError } from "../errors.js";
+import { normalizeSessionDebriefModel } from "../study-analysis.js";
 import { buildStudyTopicCoverageFromDebriefs } from "../study-analysis.js";
 
 function nowIso() {
@@ -199,7 +200,9 @@ export async function refreshStudyAggregate(db: DatabaseExecutor, studyId: strin
     topics: await findStudyTopics(db, studyId),
   };
   const topics = normalizeTopics(plan.topics);
-  const debriefModels = debriefs.map((report) => report.content);
+  const debriefModels = debriefs.map((report) =>
+    normalizeSessionDebriefModel(report.content),
+  );
   const topicCoverage =
     debriefModels.length > 0
       ? buildStudyTopicCoverageFromDebriefs(topics, debriefModels)

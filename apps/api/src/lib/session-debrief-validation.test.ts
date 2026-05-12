@@ -117,7 +117,7 @@ test("validateGeneratedSessionDebriefOutput accepts consistent coverage and grou
         ],
         topThemes: [
           { label: "Topic A", score: 4, strength: "high" },
-          { label: "Topic B", score: 2, strength: "medium" },
+          { label: "Topic B", score: 3, strength: "medium" },
         ],
         whyThisMatters: "It identifies the original value driver.",
       },
@@ -193,6 +193,83 @@ test("validateGeneratedSessionDebriefOutput rejects impossible topic coverage co
             { label: "Topic B", score: 1, strength: "low" },
           ],
           whyThisMatters: "It should fail validation.",
+        },
+        plan,
+        transcript,
+      }),
+    InvalidGeneratedSessionDebriefError,
+  );
+});
+
+test("validateGeneratedSessionDebriefOutput rejects top themes that do not match the debrief scale", () => {
+  assert.throws(
+    () =>
+      validateGeneratedSessionDebriefOutput({
+        output: {
+          contradictions: [],
+          emotionSignal: "medium",
+          evidence: [
+            {
+              followUp: "What else happened?",
+              label: "Topic A",
+              quote: "I needed help controlling my spending.",
+              theme: "Topic A",
+              whyItMatters: "It explains the initial motivation.",
+            },
+            {
+              followUp: "How did that change over time?",
+              label: "Topic B",
+              quote: "I needed help controlling my spending.",
+              theme: "Topic B",
+              whyItMatters: "It anchors the later behavior.",
+            },
+          ],
+          interviewQuality: {
+            coverage: "6/10",
+            depth: "6/10",
+            participantEngagement: "Medium",
+          },
+          keyTakeaway: "The participant adopted the app for spending control.",
+          missedAreas: ["Topic C"],
+          recommendedFollowUp: [
+            "What changed after the first week?",
+            "What made it less useful later?",
+          ],
+          reasoning: [
+            {
+              aiDecision: "Asked about motivation first.",
+              researchPurpose: "Anchor the timeline.",
+              status: "completed",
+              timestamp: "00:00",
+              trigger: "Opening",
+            },
+            {
+              aiDecision: "Noted a coverage gap.",
+              researchPurpose: "Save for later sessions.",
+              status: "planned",
+              timestamp: "00:20",
+              trigger: "Gap",
+            },
+            {
+              aiDecision: "Probed for specifics.",
+              researchPurpose: "Gather evidence.",
+              status: "completed",
+              timestamp: "00:15",
+              trigger: "Participant response",
+            },
+          ],
+          topicCoverage: [
+            { topic: "Topic A", status: "covered", evidenceStrength: "high", score: 4 },
+            { topic: "Topic B", status: "in-progress", evidenceStrength: "medium", score: 2 },
+            { topic: "Topic C", status: "weak-evidence", evidenceStrength: "low", score: 1 },
+            { topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
+            { topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
+          ],
+          topThemes: [
+            { label: "This label is much too long to fit cleanly in the debrief summary card and should fail", score: 1, strength: "high" },
+            { label: "Topic B", score: 3, strength: "medium" },
+          ],
+          whyThisMatters: "It identifies the original value driver.",
         },
         plan,
         transcript,

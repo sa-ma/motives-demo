@@ -30,6 +30,40 @@ function toEvidenceCount(strength: "high" | "medium" | "low" | "none", score: nu
   return 0;
 }
 
+const themeScoreByStrength = {
+  high: 4,
+  medium: 3,
+  low: 2,
+} as const;
+
+function normalizeDebriefTheme(
+  theme: SessionDebrief["summary"]["topThemes"][number],
+) {
+  const fallbackScore = themeScoreByStrength[theme.strength];
+  const score =
+    Number.isInteger(theme.score) && theme.score >= 2 && theme.score <= 4
+      ? theme.score
+      : fallbackScore;
+
+  return {
+    ...theme,
+    label: theme.label.trim(),
+    score,
+  };
+}
+
+export function normalizeSessionDebriefModel(
+  debrief: SessionDebrief,
+): SessionDebrief {
+  return {
+    ...debrief,
+    summary: {
+      ...debrief.summary,
+      topThemes: debrief.summary.topThemes.map(normalizeDebriefTheme),
+    },
+  };
+}
+
 export function buildStudyTopicCoverageFromDebriefs(
   planTopics: string[],
   debriefs: SessionDebrief[],
@@ -115,7 +149,7 @@ export function buildSessionDebriefModel(options: {
   }));
   const evidenceIdByTurn = buildEvidenceIdMap(options.transcript, evidence);
 
-  return {
+  return normalizeSessionDebriefModel({
     studyId: options.studyId,
     sessionId: options.sessionId,
     participantLabel: options.participantLabel,
@@ -157,7 +191,7 @@ export function buildSessionDebriefModel(options: {
       researchPurpose: row.researchPurpose,
       status: row.status,
     })),
-  } satisfies SessionDebrief;
+  } satisfies SessionDebrief);
 }
 
 export function debriefResponseFromRow(
@@ -165,6 +199,6 @@ export function debriefResponseFromRow(
 ): SessionDebriefResponse {
   return {
     status: "ready",
-    debrief: row.content,
+    debrief: normalizeSessionDebriefModel(row.content),
   };
 }

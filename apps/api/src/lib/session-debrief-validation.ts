@@ -72,6 +72,36 @@ function validateCoverageRubric(
   }
 }
 
+function validateTopThemes(topThemes: SessionDebriefOutput["topThemes"]) {
+  const expectedScores = {
+    high: 4,
+    medium: 3,
+    low: 2,
+  } as const;
+
+  for (const theme of topThemes) {
+    const label = theme.label.trim();
+
+    if (label.length < 3 || label.length > 60) {
+      throw new InvalidGeneratedSessionDebriefError(
+        `Top theme "${theme.label}" must be a short label between 3 and 60 characters.`,
+      );
+    }
+
+    if (!Number.isInteger(theme.score) || theme.score < 2 || theme.score > 4) {
+      throw new InvalidGeneratedSessionDebriefError(
+        `Top theme "${theme.label}" must use an integer score between 2 and 4.`,
+      );
+    }
+
+    if (theme.score !== expectedScores[theme.strength]) {
+      throw new InvalidGeneratedSessionDebriefError(
+        `Top theme "${theme.label}" must use score ${expectedScores[theme.strength]} when strength is ${theme.strength}.`,
+      );
+    }
+  }
+}
+
 export function validateGeneratedSessionDebriefOutput(input: {
   output: SessionDebriefOutput;
   plan: StudyPlan;
@@ -95,6 +125,7 @@ export function validateGeneratedSessionDebriefOutput(input: {
   }
 
   validateCoverageRubric(input.output.topicCoverage);
+  validateTopThemes(input.output.topThemes);
 
   const participantTurns = getSubstantiveParticipantTurns(input.transcript);
   const normalizedParticipantTurns = participantTurns.map((turn) =>

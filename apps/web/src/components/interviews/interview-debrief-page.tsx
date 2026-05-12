@@ -52,6 +52,12 @@ const themeStrengthClassNames = {
   },
 } as const;
 
+const themeStrengthBars = {
+  high: 4,
+  medium: 3,
+  low: 2,
+} as const;
+
 const coverageStatusClassNames = {
   covered: "border-emerald-100 bg-emerald-50 text-emerald-700",
   "in-progress": "border-amber-100 bg-amber-50 text-amber-700",
@@ -290,6 +296,7 @@ function SummaryPanel({ debrief }: { debrief: InterviewDebriefModel }) {
           <div className="space-y-4 px-5 pb-5 sm:px-6 sm:pb-6">
             {debrief.summary.topThemes.map((theme) => {
               const strength = themeStrengthClassNames[theme.strength];
+              const filledBars = themeStrengthBars[theme.strength];
 
               return (
                 <div
@@ -305,7 +312,7 @@ function SummaryPanel({ debrief }: { debrief: InterviewDebriefModel }) {
                         key={index}
                         className={cn(
                           "h-1.5 flex-1 rounded-full bg-zinc-200",
-                          index < theme.score && strength.fill,
+                          index < filledBars && strength.fill,
                         )}
                       />
                     ))}
