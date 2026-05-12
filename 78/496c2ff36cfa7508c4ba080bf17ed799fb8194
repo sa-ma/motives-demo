@@ -1,0 +1,129 @@
+apps/web/src/app/interviews/[inviteCode]/page.tsx
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 35-49
+  s_dde65a5fbad1ff::t_2d9b2b29581242 6
+apps/api/src/lib/studies/service.ts
+  s_dde65a5fbad1ff::t_9f74f270f20451 29-30,32,86
+  s_dde65a5fbad1ff::t_7055926292cfc1 33,1054-1059
+  s_dde65a5fbad1ff::t_aff6740756d74c 873
+  s_dde65a5fbad1ff::t_5767030ee8e6cc 355
+  s_dde65a5fbad1ff::t_958087daee5809 402
+  s_dde65a5fbad1ff::t_439169c5844480 852-853,861,988-989
+  s_dde65a5fbad1ff::t_06628283dfeace 984-987
+  s_dde65a5fbad1ff::t_2d9b2b29581242 48,59,1050-1051,1053,1060,1062-1067,1070-1073,1075-1095,1097-1100,1102,1104,1162-1174,1209-1221
+apps/web/src/components/interviews/participant-details-form.tsx
+  s_dde65a5fbad1ff::t_173147c0f19ffe 18,79
+apps/api/src/lib/public-interviews/service.ts
+  s_dde65a5fbad1ff::t_bc221bd8322fe4 63
+  s_dde65a5fbad1ff::t_a454d277217327 71-72
+  s_dde65a5fbad1ff::t_7055926292cfc1 378-386,814-819,928,930-933,944
+  s_dde65a5fbad1ff::t_ce66a95edfced8 811-813,820-838
+  s_dde65a5fbad1ff::t_de7ddf7e75e161 73-75
+  s_dde65a5fbad1ff::t_ccef03e8632085 1,20-21,24,26,44-46,49,62,64-70,102-118,130-143,155-156,159-160,220-224,226-227,230,232-233,236-267,290-377,387-427,430-475,481,483-489,492-494,496-497,500-504,506-507,509-524,526-529,531-567,569-603,605-617,619-620,622-624,626-653,655-662,664-792,794-795,797-810,839-845,905-909,923-925,927,936-938,940-941,945,947,949-954,957-965,967
+apps/web/src/components/interviews/invite-state.tsx
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 15
+apps/web/src/app/api/interviews/[inviteCode]/chat/route.ts
+  s_dde65a5fbad1ff::t_2d9b2b29581242 6,19
+  s_dde65a5fbad1ff::t_69cbf01aa04906 3-5,7-9,27-31
+apps/web/src/app/interviews/[inviteCode]/room/page.tsx
+  s_dde65a5fbad1ff::t_2d9b2b29581242 7,41
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 36-40,42-49
+apps/web/src/app/interviews/[inviteCode]/welcome/page.tsx
+  s_dde65a5fbad1ff::t_2d9b2b29581242 8
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 37-51
+packages/contracts/src/invites.ts
+  s_dde65a5fbad1ff::t_6ce3207ad91446 11
+apps/api/src/app.test.ts
+  s_dde65a5fbad1ff::t_297c00f895a8a5 1497-1509
+  s_dde65a5fbad1ff::t_d11932b0bf40f0 369-371
+  s_dde65a5fbad1ff::t_171030eac4ac4b 813,815-816,1056,1064,1068,1072,1079,1095-1096,1101-1105,1117-1126,1131,1147-1158,1164,1174,1184-1185,1190,1233,1284,1286-1287,1289-1293,1298-1299,1301-1302,1309,1688-1690,1899,1901-1912,1916-1917,2008,2038,2049-2050,2055,2106,2108-2114,2120,2199,2210,2213,2223,2226,2281,2283-2294,2300,2353,2355-2366,2372,2432-2433,2447-2453,2460
+  s_dde65a5fbad1ff::t_3cf7b0653c875c 1380-1400,1402-1429,1572-1617
+  s_dde65a5fbad1ff::t_eb80fd2c98cb12 14,355-368,372-410,437-438,440-450,453-474
+  s_dde65a5fbad1ff::t_9bd05ef2a27c4c 479-490,493-498,500,502-505,507-508,510-519,522-523,1323,1327-1339,1341,1344-1379,1430-1475,1479-1496,1510-1514,1518-1571,1618-1677
+  s_dde65a5fbad1ff::t_83fed6daaa73b6 1476-1478,1515-1517
+  s_dde65a5fbad1ff::t_35cc6caa5476d3 1238-1244,1246-1247
+apps/api/src/db/repositories/invites.ts
+  s_dde65a5fbad1ff::t_7055926292cfc1 3,111-128
+  s_dde65a5fbad1ff::t_4efacf7ad3976f 7,15-24,37-43,65-73,98-110,146-166,215-220
+apps/api/src/db/migrations.ts
+  s_dde65a5fbad1ff::t_2f8bf56dbfa479 40
+apps/api/src/routes/public-interviews.ts
+  s_dde65a5fbad1ff::t_4e6c9805ab9167 20,97-100,124-126,133-141,357-367,369-371
+  s_dde65a5fbad1ff::t_621256445c0c2e 355,368
+apps/web/src/lib/interviews/unavailable-copy.ts
+  s_dde65a5fbad1ff::t_f2f752bfd04e9f 1,4,17-18
+  s_dde65a5fbad1ff::t_2d9b2b29581242 2-3,5-16,19
+apps/web/src/components/interviews/complete-screen.tsx
+  s_dde65a5fbad1ff::t_e24b6bd0dceaac 5-26,37,40,47,53
+packages/contracts/src/studies.ts
+  s_dde65a5fbad1ff::t_6ce3207ad91446 133,190
+apps/web/src/lib/interviews/session-token.ts
+  s_dde65a5fbad1ff::t_2d9b2b29581242 1-6
+  s_dde65a5fbad1ff::t_69cbf01aa04906 7
+apps/api/src/db/schema.ts
+  s_dde65a5fbad1ff::t_6ce3207ad91446 189,191,200-221,393
+apps/web/src/components/interviews/interview-room.tsx
+  s_dde65a5fbad1ff::t_173147c0f19ffe 25,155
+  s_dde65a5fbad1ff::t_e24b6bd0dceaac 162
+apps/api/src/lib/studies/state.ts
+  s_dde65a5fbad1ff::t_06628283dfeace 67
+apps/web/src/app/interviews/[inviteCode]/preparing/page.tsx
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 37-41,43-50
+  s_dde65a5fbad1ff::t_2d9b2b29581242 8,42
+apps/web/src/app/interviews/[inviteCode]/complete/page.tsx
+  s_dde65a5fbad1ff::t_e24b6bd0dceaac 12,15,18,66-72
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 40-44,46-53
+  s_dde65a5fbad1ff::t_2d9b2b29581242 8,45
+apps/web/src/lib/interviews/session-client.ts
+  s_dde65a5fbad1ff::t_69cbf01aa04906 1-37
+apps/web/src/lib/api/server.ts
+  s_dde65a5fbad1ff::t_2d9b2b29581242 14,95
+  s_dde65a5fbad1ff::t_69cbf01aa04906 1-2,13,15-16,96-107,109-110,112-113
+apps/web/src/app/api/interviews/[inviteCode]/session/route.ts
+  s_dde65a5fbad1ff::t_69cbf01aa04906 2,4,6-7,22,28-52,54,56-60,63
+  s_dde65a5fbad1ff::t_2d9b2b29581242 5,26-27,55
+apps/web/src/components/studies/study-summary-card.tsx
+  s_dde65a5fbad1ff::t_06628283dfeace 85,107,109,281,283-298,307-311
+apps/web/src/app/interviews/[inviteCode]/details/page.tsx
+  s_dde65a5fbad1ff::t_7f32082ab9f2ad 37-41,43-50
+  s_dde65a5fbad1ff::t_2d9b2b29581242 8,42
+apps/web/src/components/studies/interview-plan-page.tsx
+  s_dde65a5fbad1ff::t_06628283dfeace 409,411,424-425,643-647,649-659,682-683
+  s_9916e8ec374797::t_1d5ab7189fff97 394,423,439,660,680
+apps/web/src/components/interviews/preparing-screen.tsx
+  s_dde65a5fbad1ff::t_173147c0f19ffe 11,33
+apps/web/src/components/studies/study-detail-page.tsx
+  s_dde65a5fbad1ff::t_06628283dfeace 368,448,512,514-524,529,531,546-550
+apps/api/drizzle/0006_study_invite_lazy_sessions.sql
+  s_dde65a5fbad1ff::t_2f8bf56dbfa479 1-64
+packages/contracts/src/public-interviews.ts
+  s_dde65a5fbad1ff::t_6ce3207ad91446 124-142,152-153
+apps/api/src/db/repositories/studies.ts
+  s_dde65a5fbad1ff::t_4efacf7ad3976f 27-30
+  s_dde65a5fbad1ff::t_83d14e0f378a16 31-70
+apps/web/src/components/interviews/welcome-screen.tsx
+  s_dde65a5fbad1ff::t_173147c0f19ffe 9,89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "78496c2ff36cfa7508c4ba080bf17ed799fb8194",
+  "prompts": {},
+  "sessions": {
+    "s_9916e8ec374797": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1945-ca61-71d0-aaf7-517e91fee43a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    },
+    "s_dde65a5fbad1ff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1d9f-6e6f-7752-9176-4bbb45261a08",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
