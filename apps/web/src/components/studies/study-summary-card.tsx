@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { browserApiClient } from "@/lib/api/client";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 const accentClasses = {
@@ -77,23 +78,6 @@ const accentClasses = {
     cta: "min-w-[174px] justify-center border border-zinc-300 bg-white text-zinc-700 ring-1 ring-inset ring-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-800",
   },
 } as const;
-
-async function copyTextToClipboard(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
-}
 
 export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
   const queryClient = useQueryClient();

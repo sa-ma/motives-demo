@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { browserApiClient } from "@/lib/api/client";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { SERVER_RENDERED_QUERY_STALE_TIME_MS } from "@/lib/query";
 import { cn } from "@/lib/utils";
 
@@ -210,23 +211,6 @@ function DetailMetadata({
       <span>{label}</span>
     </div>
   );
-}
-
-async function copyTextToClipboard(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
 }
 
 function MetricCard({ metric }: { metric: StudyMetricCard }) {
