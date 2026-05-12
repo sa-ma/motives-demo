@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { before, beforeEach, test } from "node:test";
+import { sql } from "drizzle-orm";
 
 import type { InterviewAiService } from "./ai/service.js";
 import type { ResearchAiService } from "./ai/research-service.js";
@@ -239,6 +240,65 @@ function createFakeResearchAiService(): ResearchAiService {
           themes: ["Onboarding", "Trust", "Retention"],
         },
         providerResponseId: "aggregate_response_test",
+      };
+    },
+  };
+}
+
+function createInvalidPlanResearchAiService(): ResearchAiService {
+  const base = createFakeResearchAiService();
+
+  return {
+    ...base,
+    async generateStudyPlan(input) {
+      return {
+        model: "test-plan-model",
+        output: {
+          exampleProbes: [
+            "What happened right after that moment?",
+            "What made that stand out to you?",
+            "What would you have expected instead?",
+            "What made it feel worth returning to at first?",
+            "When did that start to change for you?",
+          ],
+          hypotheses: [
+            `${input.study.title} loses momentum when the initial experience feels misaligned.`,
+            "hypotheses? no field names in string values violated? fine.",
+            "Concrete friction moments are stronger retention drivers than generic sentiment.",
+            "Retention depends on whether the app feels useful before upkeep starts to feel like work.",
+          ],
+          mustCoverAreas: [
+            "Capture the first signal that feedback felt necessary.",
+            "Capture why the manager judged the moment as not yet urgent.",
+            "Capture what happened instead of the feedback conversation.",
+            "Capture the threshold that made feedback feel unavoidable later.",
+            "Capture any documentation concern that changed what they recorded.",
+          ],
+          objective: input.study.objective,
+          openingQuestion: `What was your experience using ${input.study.context} from sign-up to the point you stopped using it?`,
+          probingStrategy: [
+            "Ask for concrete examples.",
+            "Probe what changed over time.",
+            "Stay close to the participant's language.",
+            "Separate emotional reactions from practical friction.",
+          ],
+          selectedBehaviorId: "ask-for-examples",
+          selectedTone: "calm, curious",
+          thingsToAvoid: [
+            "Leading questions about motivation",
+            "Premature solutioning before the cause is clear",
+            "Technical implementation detail that the participant cannot observe",
+            "Generic budgeting advice unrelated to abandonment",
+          ],
+          topics: [
+            ...input.topics,
+            "Retention signals",
+            "Perceived value",
+            "Decision triggers",
+            "Habit formation",
+          ].slice(0, 5),
+        },
+        providerResponseId: "plan_response_invalid_test",
       };
     },
   };
@@ -1307,6 +1367,95 @@ test("ended studies reject plan and invite mutations", async () => {
       url: `/v1/studies/${createdStudy.studyId}/invites`,
     });
     assert.equal(inviteResponse.statusCode, 409);
+  } finally {
+    await app.close();
+  }
+});
+
+test("plan status exposes regenerate failures even when an older draft exists", async () => {
+  const app = await createTestApp();
+
+  try {
+    const createStudyResponse = await app.inject({
+      method: "POST",
+      payload: {
+        audience: "First-time managers",
+        context: "Weekly 1:1 feedback",
+        targetParticipants: 8,
+        objective: "Understand why managers delay regular feedback.",
+        title: "Plan failure visibility",
+        topics: ["Feedback timing", "Preparation", "Trust"],
+      },
+      url: "/v1/studies",
+    });
+    const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
+
+    await ensureDraftPlan(app, createdStudy.studyId);
+
+    const failingApp = await createTestApp({
+      researchAiService: createInvalidPlanResearchAiService(),
+    });
+
+    try {
+      const regenerateResponse = await failingApp.inject({
+        method: "POST",
+        payload: {},
+        url: `/v1/studies/${createdStudy.studyId}/plan/generate`,
+      });
+
+      assert.equal(regenerateResponse.statusCode, 202);
+
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        await failingApp.db.execute(sql`
+          update analysis_job
+          set scheduled_at = now()
+          where study_id = ${createdStudy.studyId}
+            and kind = 'plan-generation'
+            and status = 'queued'
+        `);
+
+        await processNextAnalysisJob(
+          failingApp.db,
+          createInvalidPlanResearchAiService(),
+        );
+
+        const intermediateStatusResponse = await failingApp.inject({
+          method: "GET",
+          url: `/v1/studies/${createdStudy.studyId}/plan/status`,
+        });
+        const intermediateStatus = parseJson<{
+          status: string;
+        }>(intermediateStatusResponse.body);
+
+        if (intermediateStatus.status !== "pending") {
+          break;
+        }
+      }
+
+      const statusResponse = await failingApp.inject({
+        method: "GET",
+        url: `/v1/studies/${createdStudy.studyId}/plan/status`,
+      });
+
+      assert.equal(statusResponse.statusCode, 200);
+      assert.deepEqual(
+        parseJson<{
+          error: string;
+          hasPlan: boolean;
+          status: string;
+          studyId: string;
+        }>(statusResponse.body),
+        {
+          error:
+            'Generated interview plan failed validation: Generated plan field "hypotheses" contained malformed content.',
+          hasPlan: true,
+          status: "failed",
+          studyId: createdStudy.studyId,
+        },
+      );
+    } finally {
+      await failingApp.close();
+    }
   } finally {
     await app.close();
   }

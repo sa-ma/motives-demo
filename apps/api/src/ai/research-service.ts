@@ -6,14 +6,18 @@ import type { SessionDebrief, StudyPlan } from "@motives-ai/contracts";
 import type { SessionAnnotationRow, StudyRow, TranscriptTurnRow } from "../db/schema.js";
 import type { ParticipantResponses } from "@motives-ai/contracts/public-interviews";
 import {
+  buildStudyPlanBodyPrompt,
+  buildStudyPlanHypothesesPrompt,
   buildSessionDebriefPrompt,
   buildStudyAggregatePrompt,
-  buildStudyPlanPrompt,
 } from "./research-prompts.js";
 import {
-  generatedStudyPlanOutputJsonSchema,
+  generatedStudyPlanBodyOutputJsonSchema,
+  generatedStudyPlanHypothesesOutputJsonSchema,
   sessionDebriefOutputJsonSchema,
   studyAggregateOutputJsonSchema,
+  type GeneratedStudyPlanBodyOutput,
+  type GeneratedStudyPlanHypothesesOutput,
   type GeneratedStudyPlanOutput,
   type SessionDebriefOutput,
   type StudyAggregateOutput,
@@ -107,19 +111,37 @@ export function createOpenAiResearchAiService(
     async generateStudyPlan(input) {
       ensureOpenAiApiKey(config);
       const { plan } = getResearchModels(config);
-      const result = await generateObject<GeneratedStudyPlanOutput>({
+      const hypothesisResult = await generateObject<GeneratedStudyPlanHypothesesOutput>({
         config,
         model: plan,
-        prompt: buildStudyPlanPrompt(input),
+        prompt: buildStudyPlanHypothesesPrompt(input),
         schema: Output.object({
-          schema: generatedStudyPlanOutputJsonSchema,
+          schema: generatedStudyPlanHypothesesOutputJsonSchema,
+        }),
+      });
+      const planBodyResult = await generateObject<GeneratedStudyPlanBodyOutput>({
+        config,
+        model: plan,
+        prompt: buildStudyPlanBodyPrompt({
+          hypotheses: hypothesisResult.value.hypotheses,
+          objective: hypothesisResult.value.objective,
+          study: input.study,
+          topics: input.topics,
+        }),
+        schema: Output.object({
+          schema: generatedStudyPlanBodyOutputJsonSchema,
         }),
       });
 
       return {
         model: plan,
-        output: result.value,
-        providerResponseId: result.providerResponseId,
+        output: {
+          objective: hypothesisResult.value.objective,
+          hypotheses: hypothesisResult.value.hypotheses,
+          ...planBodyResult.value,
+        },
+        providerResponseId:
+          planBodyResult.providerResponseId ?? hypothesisResult.providerResponseId,
       };
     },
 

@@ -855,19 +855,19 @@ async function buildStudyPlanGenerationResponse(
     };
   }
 
-  if (plan) {
+  if (latestJob?.status === "failed") {
     return {
-      hasPlan: true,
-      status: "ready",
+      error: latestJob.error ?? "Plan generation failed.",
+      hasPlan: Boolean(plan),
+      status: "failed",
       studyId,
     };
   }
 
-  if (latestJob?.status === "failed") {
+  if (plan) {
     return {
-      error: latestJob.error ?? "Plan generation failed.",
-      hasPlan: false,
-      status: "failed",
+      hasPlan: true,
+      status: "ready",
       studyId,
     };
   }
@@ -2004,7 +2004,7 @@ export async function processNextAnalysisJob(
         if (error instanceof InvalidGeneratedStudyPlanError) {
           throw new ApiError(
             502,
-            "We could not generate a reliable interview plan right now.",
+            `Generated interview plan failed validation: ${error.message}`,
             "STUDY_PLAN_GENERATION_FAILED",
           );
         }

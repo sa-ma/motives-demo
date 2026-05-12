@@ -3,47 +3,171 @@ import { Type, type Static } from "@sinclair/typebox";
 
 import { InterviewBehaviorIdSchema } from "@motives-ai/contracts/plans";
 
+const GeneratedStudyPlanObjectiveSchema = Type.String({
+  description:
+    "One clear sentence describing exactly what the interview should help the team learn.",
+  minLength: 12,
+  maxLength: 240,
+});
+
+const GeneratedStudyPlanHypothesisItemSchema = Type.String({
+  description:
+    "One complete sentence stating a causal claim about participant behavior, belief, friction, or tradeoff. State what participants do and why they do it.",
+  minLength: 12,
+  maxLength: 220,
+});
+
+const GeneratedStudyPlanHypothesesSchema = Type.Array(
+  GeneratedStudyPlanHypothesisItemSchema,
+  {
+    description:
+      "Return 4 to 6 concrete hypotheses. Each item should read like Participants do X because Y or When Z, participants do X because Y.",
+    minItems: 4,
+    maxItems: 6,
+  },
+);
+
+const GeneratedStudyPlanTopicsSchema = Type.Array(
+  Type.String({
+    description:
+      "A short, specific label for one discussion area to explore in the interview. Not a question and not a vague filler label.",
+    minLength: 3,
+    maxLength: 80,
+  }),
+  {
+    description:
+      "Return 5 to 8 focused topics that organize the interview into meaningful discussion areas.",
+    minItems: 5,
+    maxItems: 8,
+  },
+);
+
+const GeneratedStudyPlanOpeningQuestionSchema = Type.String({
+  description:
+    "One natural, non-leading opening question that invites the participant to start with a real experience.",
+  minLength: 12,
+  maxLength: 220,
+  pattern: ".*\\?$",
+});
+
+const GeneratedStudyPlanProbingStrategySchema = Type.Array(
+  Type.String({
+    description:
+      "A practical interviewer tactic for getting clearer evidence, richer examples, or more specific detail.",
+    minLength: 12,
+    maxLength: 160,
+  }),
+  {
+    description:
+      "Return 4 to 6 probing strategies that help the interviewer adapt during the conversation.",
+    minItems: 4,
+    maxItems: 6,
+  },
+);
+
+const GeneratedStudyPlanExampleProbesSchema = Type.Array(
+  Type.String({
+    description:
+      "One standalone follow-up question the interviewer could ask verbatim. It must be a single question.",
+    minLength: 12,
+    maxLength: 220,
+    pattern: ".*\\?$",
+  }),
+  {
+    description:
+      "Return 5 to 8 concrete example probes. Each item must be one natural-sounding question.",
+    minItems: 5,
+    maxItems: 8,
+  },
+);
+
+const GeneratedStudyPlanMustCoverAreasSchema = Type.Array(
+  Type.String({
+    description:
+      "A concrete piece of information the interviewer must capture before the interview ends.",
+    minLength: 12,
+    maxLength: 160,
+  }),
+  {
+    description:
+      "Return 5 to 8 specific must-cover areas. These should name evidence to collect, not generic reminders.",
+    minItems: 5,
+    maxItems: 8,
+  },
+);
+
+const GeneratedStudyPlanThingsToAvoidSchema = Type.Array(
+  Type.String({
+    description:
+      "A specific interviewing mistake, bias risk, or dead end to avoid during the session.",
+    minLength: 12,
+    maxLength: 160,
+  }),
+  {
+    description:
+      "Return 4 to 6 specific things to avoid. Each item should prevent a concrete interviewing failure mode.",
+    minItems: 4,
+    maxItems: 6,
+  },
+);
+
+const GeneratedStudyPlanSelectedToneSchema = Type.String({
+  description:
+    "A short phrase describing the interviewer tone, such as calm, direct or warm and curious.",
+  minLength: 3,
+  maxLength: 60,
+});
+
+export const GeneratedStudyPlanHypothesesOutputSchema = Type.Object(
+  {
+    objective: GeneratedStudyPlanObjectiveSchema,
+    hypotheses: GeneratedStudyPlanHypothesesSchema,
+  },
+  { additionalProperties: false },
+);
+
+export type GeneratedStudyPlanHypothesesOutput = Static<
+  typeof GeneratedStudyPlanHypothesesOutputSchema
+>;
+
+export const generatedStudyPlanHypothesesOutputJsonSchema =
+  jsonSchema<GeneratedStudyPlanHypothesesOutput>(
+    GeneratedStudyPlanHypothesesOutputSchema,
+  );
+
+export const GeneratedStudyPlanBodyOutputSchema = Type.Object(
+  {
+    topics: GeneratedStudyPlanTopicsSchema,
+    openingQuestion: GeneratedStudyPlanOpeningQuestionSchema,
+    probingStrategy: GeneratedStudyPlanProbingStrategySchema,
+    exampleProbes: GeneratedStudyPlanExampleProbesSchema,
+    mustCoverAreas: GeneratedStudyPlanMustCoverAreasSchema,
+    thingsToAvoid: GeneratedStudyPlanThingsToAvoidSchema,
+    selectedBehaviorId: InterviewBehaviorIdSchema,
+    selectedTone: GeneratedStudyPlanSelectedToneSchema,
+  },
+  { additionalProperties: false },
+);
+
+export type GeneratedStudyPlanBodyOutput = Static<
+  typeof GeneratedStudyPlanBodyOutputSchema
+>;
+
+export const generatedStudyPlanBodyOutputJsonSchema =
+  jsonSchema<GeneratedStudyPlanBodyOutput>(GeneratedStudyPlanBodyOutputSchema);
+
 export const GeneratedStudyPlanOutputSchema = Type.Object(
   {
-    objective: Type.String({ minLength: 12, maxLength: 240 }),
-    hypotheses: Type.Array(Type.String({ minLength: 12, maxLength: 160 }), {
-      minItems: 4,
-      maxItems: 6,
-    }),
-    topics: Type.Array(Type.String({ minLength: 3, maxLength: 80 }), {
-      minItems: 5,
-      maxItems: 8,
-    }),
-    openingQuestion: Type.String({
-      minLength: 12,
-      maxLength: 220,
-      pattern: ".*\\?$",
-    }),
-    probingStrategy: Type.Array(Type.String({ minLength: 12, maxLength: 160 }), {
-      minItems: 4,
-      maxItems: 6,
-    }),
-    exampleProbes: Type.Array(
-      Type.String({
-        minLength: 12,
-        maxLength: 220,
-        pattern: ".*\\?$",
-      }),
-      {
-        minItems: 5,
-        maxItems: 8,
-      },
-    ),
-    mustCoverAreas: Type.Array(Type.String({ minLength: 12, maxLength: 160 }), {
-      minItems: 5,
-      maxItems: 8,
-    }),
-    thingsToAvoid: Type.Array(Type.String({ minLength: 12, maxLength: 160 }), {
-      minItems: 4,
-      maxItems: 6,
-    }),
+    objective: GeneratedStudyPlanObjectiveSchema,
+    hypotheses: GeneratedStudyPlanHypothesesSchema,
+    topics: GeneratedStudyPlanTopicsSchema,
+    openingQuestion: GeneratedStudyPlanOpeningQuestionSchema,
+    probingStrategy: GeneratedStudyPlanProbingStrategySchema,
+    exampleProbes: GeneratedStudyPlanExampleProbesSchema,
+    mustCoverAreas: GeneratedStudyPlanMustCoverAreasSchema,
+    thingsToAvoid: GeneratedStudyPlanThingsToAvoidSchema,
     selectedBehaviorId: InterviewBehaviorIdSchema,
-    selectedTone: Type.String({ minLength: 3, maxLength: 60 }),
+    selectedTone: GeneratedStudyPlanSelectedToneSchema,
   },
   { additionalProperties: false },
 );

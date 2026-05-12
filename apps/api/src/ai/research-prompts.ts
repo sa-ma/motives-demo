@@ -66,22 +66,64 @@ function formatAnnotations(annotations: SessionAnnotationRow[]) {
     .join("\n\n");
 }
 
-export function buildStudyPlanPrompt(input: {
+export function buildStudyPlanHypothesesPrompt(input: {
   study: StudyRow;
   topics: string[];
 }) {
   return [
-    "You are a senior UX researcher writing an interview guide for an AI-led interview product.",
+    "You are a senior UX researcher defining the objective and hypotheses for an interview guide.",
+    "Generate only the research objective and hypothesis set.",
+    "Write as if a human researcher will review this work directly.",
+    "The objective must be one clear sentence describing exactly what the interview should help the team learn.",
+    "Each hypothesis must be a complete causal claim about participant behavior, belief, friction, or tradeoff.",
+    'Use sentence shapes like "Participants do X because Y." or "When Z happens, participants do X because Y."',
+    "Every hypothesis must describe an observable behavior or decision and then explain the reason, fear, tradeoff, or constraint behind it.",
+    "Do not write labels, fragments, placeholders, editorial notes, or repair text.",
+    "Do not begin any hypothesis with the word hypothesis or hypotheses.",
+    "Do not mention prompts, schema, JSON, fields, formatting, placeholders, or generation process.",
+    "Return exactly 4 to 6 hypotheses.",
+    "Use the starting topics only as anchors. Refine them into sharper causal claims tied to the study objective, audience, and context.",
+    "Example hypotheses:",
+    '- "First-time managers delay corrective feedback because they are unsure whether an early warning sign reflects a real pattern or a one-off incident."',
+    '- "When rapport with a direct report feels fragile, first-time managers soften or postpone feedback because they fear damaging trust before it is established."',
+    '- "First-time managers overprepare for difficult feedback because they believe the conversation must be precise and fully evidenced before they bring it up."',
+    '- "When weekly 1:1s are crowded with urgent delivery work, first-time managers skip coaching because status updates feel safer and easier to complete."',
+    "Return only the final structured object.",
+    "",
+    `Study title: ${input.study.title}`,
+    `Current objective: ${input.study.objective}`,
+    `Audience: ${input.study.audience}`,
+    `Context: ${input.study.context}`,
+    "Seed topics:",
+    formatOrderedList(input.topics),
+  ].join("\n");
+}
+
+export function buildStudyPlanBodyPrompt(input: {
+  hypotheses: string[];
+  objective: string;
+  study: StudyRow;
+  topics: string[];
+}) {
+  return [
+    "You are a senior UX researcher completing an interview guide for an AI-led interview product.",
+    "The objective and hypotheses below are fixed inputs. Use them to shape the rest of the plan.",
+    "Do not rewrite, summarize, label, or explain the objective or hypotheses. Build the remaining plan around them.",
     "Generate a plan that is concrete, practical, and clearly usable by a live interviewer.",
-    "Every hypothesis and topic must be specific to the study objective, audience, and context.",
+    "Every topic must be specific to the objective, audience, context, and provided hypotheses.",
     "Do not produce generic research filler.",
     "Use the provided starting topics as anchors, but refine and expand them where useful.",
+    "Use this quality bar for each field:",
+    "- topics: short discussion labels for major areas to explore. Topics are not questions and should not be vague one-word buckets unless they are still clearly specific in context.",
+    "- probingStrategy: practical interviewer tactics for getting richer evidence, not research goals or outcomes.",
+    "- mustCoverAreas: concrete pieces of information the interviewer must capture before the interview ends.",
+    "- thingsToAvoid: specific interviewer mistakes, bias risks, or dead ends to avoid.",
     "The opening question should be a single natural, non-leading question and must end with a question mark.",
     "Every list item must contain exactly one idea.",
     "Every example probe must be a single standalone question, not a combined list of questions, and every example probe must end with a question mark.",
     "Do not include JSON fragments, field names, markdown, repair notes, or commentary inside any string value.",
     "If you notice a formatting mistake, silently fix it and return a clean object rather than explaining the mistake.",
-    "Return exactly 4 to 6 hypotheses.",
+    "Before returning, silently check that every topic is a real discussion area and every must-cover area is concrete.",
     "Return exactly 5 to 8 topics.",
     "Return exactly 4 to 6 probing strategy items.",
     "Return exactly 5 to 8 example probes.",
@@ -89,12 +131,14 @@ export function buildStudyPlanPrompt(input: {
     "Return exactly 4 to 6 things to avoid.",
     "Selected behavior should be the single behavior mode that best fits the study.",
     "Selected tone should be short, specific, and no more than a few words.",
-    "Return only structured data that matches the schema.",
+    "Return only the final structured object.",
     "",
     `Study title: ${input.study.title}`,
-    `Objective: ${input.study.objective}`,
+    `Objective: ${input.objective}`,
     `Audience: ${input.study.audience}`,
     `Context: ${input.study.context}`,
+    "Hypotheses:",
+    formatOrderedList(input.hypotheses),
     "Seed topics:",
     formatOrderedList(input.topics),
   ].join("\n");

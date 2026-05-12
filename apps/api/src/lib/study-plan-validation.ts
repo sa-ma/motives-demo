@@ -55,7 +55,7 @@ type PlanListConfig = {
 const PLAN_LIST_CONFIG: Record<PlanListField, PlanListConfig> = {
   hypotheses: {
     maxItems: 6,
-    maxLength: 160,
+    maxLength: 220,
     minItems: 4,
   },
   topics: {

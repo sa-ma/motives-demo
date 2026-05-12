@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@motives-ai/contracts/client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock3, PenLine, RefreshCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -353,6 +353,7 @@ export function InterviewPlanPage({
   const generationPending = planGenerationStatus?.status === "pending";
   const generationError =
     planGenerationStatus?.status === "failed" ? planGenerationStatus.error ?? null : null;
+  const previousPlanGenerationStatusRef = useRef(planGenerationStatus?.status ?? null);
   const updatePlanMutation = useMutation({
     mutationFn: (nextPlan: StudyPlanModel) =>
       browserApiClient.plans.update(studyId, {
@@ -454,6 +455,23 @@ export function InterviewPlanPage({
     regenerationPending ||
     generationPending;
 
+  useEffect(() => {
+    const currentStatus = planGenerationStatus?.status ?? null;
+    const previousStatus = previousPlanGenerationStatusRef.current;
+
+    if (
+      previousStatus === "pending" &&
+      currentStatus === "failed" &&
+      editablePlan !== null
+    ) {
+      toast.error("The latest regenerate attempt failed. Your current plan was not changed.", {
+        description: generationError ?? "We couldn't generate a new draft right now.",
+      });
+    }
+
+    previousPlanGenerationStatusRef.current = currentStatus;
+  }, [editablePlan, generationError, planGenerationStatus?.status]);
+
   if (planQuery.isError) {
     return (
       <div className="flex min-h-full items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,250,252,0.98))] px-4 py-10">
@@ -469,7 +487,7 @@ export function InterviewPlanPage({
       <InitialPlanGenerationState
         canRetry={!initialPlanGenerationPending && canRegeneratePlan}
         error={generationError}
-        isGenerating={initialPlanGenerationPending || generationMode === "initial"}
+        isGenerating={initialPlanGenerationPending}
         onRetry={() => {
           setGenerationMode("initial");
           initialPlanGenerationMutation.mutate();
@@ -579,6 +597,14 @@ export function InterviewPlanPage({
                     <p className="mt-1 text-sky-700">
                       Your current plan stays visible until the new draft is ready. This usually takes 10-20 seconds.
                     </p>
+                  </div>
+                ) : null}
+                {generationError && !regenerationPending ? (
+                  <div className="mb-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
+                    <p className="font-medium text-rose-900">
+                      The latest regenerate attempt failed. Your current plan was not changed.
+                    </p>
+                    <p className="mt-1 text-rose-700">{generationError}</p>
                   </div>
                 ) : null}
                 {studyEnded ? (
