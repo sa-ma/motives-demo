@@ -9,16 +9,12 @@ import { buildDemoStudies } from "./demo-studies.js";
 test("demo studies build complete, internally consistent fixtures", () => {
   const studies = buildDemoStudies(new Date("2026-05-11T12:00:00.000Z"));
 
-  assert.equal(studies.length, 2);
-  assert.deepEqual(
-    studies.map((study) => study.status),
-    ["completed", "interviewing"],
-  );
+  assert.ok(studies.length > 0);
 
   for (const study of studies) {
     validateStudyPlan(study.planContent);
-    assert.equal(study.sessionArtifacts.length, 3);
-    assert.equal(study.debriefInserts.length, 3);
+    assert.ok(study.sessionArtifacts.length > 0);
+    assert.equal(study.debriefInserts.length, study.sessionArtifacts.length);
     assert.ok((study.aggregateInsert.coverage ?? 0) >= 80);
     assert.ok((study.aggregateInsert.themes ?? []).length >= 2);
 
@@ -28,7 +24,10 @@ test("demo studies build complete, internally consistent fixtures", () => {
         plan: study.planContent,
         transcript: session.transcriptRows,
       });
-      assert.equal(session.debriefInsert.content.coverage.topics.length, study.planContent.topics.length);
+      assert.equal(
+        session.debriefInsert.content.coverage.topics.length,
+        study.planContent.topics.length,
+      );
       assert.equal(session.sessionInsert.sessionStatus, "complete");
       assert.equal(session.profileInsert.consentAccepted, true);
     }

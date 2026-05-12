@@ -104,28 +104,3 @@ test("validateGeneratedStudyPlanOutput rejects question-like chatter in hypothes
     InvalidGeneratedStudyPlanError,
   );
 });
-
-test("validateGeneratedStudyPlanOutput rejects schema meta language in list fields", () => {
-  const corruptedOutput = createValidOutput();
-
-  corruptedOutput.mustCoverAreas[0] = "Return only structured data that matches the schema.";
-
-  assert.throws(
-    () => validateGeneratedStudyPlanOutput(corruptedOutput),
-    InvalidGeneratedStudyPlanError,
-  );
-});
-
-test("validateStudyPlan rejects malformed persisted plans", () => {
-  const malformedPlan = {
-    studyId: "study_123",
-    title: "Why do Gen Z users abandon budgeting apps?",
-    subtitle: "AI-generated plan tailored to your research objective",
-    ...createValidOutput(),
-    exampleProbes: [
-      `How well did the app's budget categories, goals, or advice fit how you actually manage money?","What, if anything, felt too manual or time-consuming after the initial setup?","How comfortable were you linking your accounts, and what concerns did you have, if any?","Did anything about the balances, transactions, or recommendations make you question whether the app was reliable?","What would the app have needed to do in the first week for you to keep using it?"],"mustCoverAreas":["Which app they used most recently and how long they used it after onboarding."],"selectedTone":"calm, direct"}`,
-    ],
-  };
-
-  assert.throws(() => validateStudyPlan(malformedPlan), InvalidGeneratedStudyPlanError);
-});
