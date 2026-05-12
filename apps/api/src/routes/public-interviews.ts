@@ -17,6 +17,7 @@ import {
 } from "@motives-ai/contracts/public-interviews";
 
 import {
+  INTERVIEW_SESSION_TOKEN_HEADER,
   finalizePublicInterviewChatTurn,
   getPublicInterviewRouteState,
   performPublicInterviewAction,
@@ -93,7 +94,10 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       const { inviteCode } = request.params;
-      const routeState = await getPublicInterviewRouteState(app.db, inviteCode);
+      const sessionTokenHeader = request.headers[INTERVIEW_SESSION_TOKEN_HEADER];
+      const sessionToken =
+        typeof sessionTokenHeader === "string" ? sessionTokenHeader : undefined;
+      const routeState = await getPublicInterviewRouteState(app.db, inviteCode, sessionToken);
 
       if (routeState.kind === "invalid") {
         reply.code(404);
@@ -117,16 +121,24 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { inviteCode } = request.params;
       const input = request.body;
+      const sessionTokenHeader = request.headers[INTERVIEW_SESSION_TOKEN_HEADER];
+      const sessionToken =
+        typeof sessionTokenHeader === "string" ? sessionTokenHeader : undefined;
       const userText = getMessageText(input.message).trim();
 
       if (!userText) {
         throw new ApiError(400, "A participant message is required.", "PARTICIPANT_MESSAGE_REQUIRED");
       }
 
-      const prepared = await preparePublicInterviewChatTurn(app.db, inviteCode, {
-        clientMessageId: input.message.id,
-        userText,
-      });
+      const prepared = await preparePublicInterviewChatTurn(
+        app.db,
+        inviteCode,
+        {
+          clientMessageId: input.message.id,
+          userText,
+        },
+        sessionToken,
+      );
 
       const stream = createUIMessageStream<UIMessage<InterviewMessageMetadata>>({
         async execute({ writer }) {
@@ -340,9 +352,23 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { inviteCode } = request.params;
-      return await performPublicInterviewAction(app.db, inviteCode, request.body);
+      const sessionTokenHeader = request.headers[INTERVIEW_SESSION_TOKEN_HEADER];
+      const sessionToken =
+        typeof sessionTokenHeader === "string" ? sessionTokenHeader : undefined;
+      const result = await performPublicInterviewAction(
+        app.db,
+        inviteCode,
+        request.body,
+        sessionToken,
+      );
+
+      if (result.issuedSessionToken) {
+        reply.header(INTERVIEW_SESSION_TOKEN_HEADER, result.issuedSessionToken);
+      }
+
+      return result.response;
     },
   );
 };

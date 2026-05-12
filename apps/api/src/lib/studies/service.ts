@@ -25,13 +25,12 @@ import {
   listLatestAnalysisJobsForSessions,
 } from "../../db/repositories/analysis.js";
 import {
-  createInterviewInvite,
-  createInterviewSession,
   createInviteCode,
-  createParticipantProfile,
+  createStudyInvite as createStudyInviteRow,
+  findActiveStudyInviteForStudy,
   findSessionById,
-  listLatestActiveInvitesForSessions,
-  listLatestActiveInvitesForStudies,
+  listActiveStudyInvitesForStudies,
+  revokeExpiredStudyInvitesForStudy,
 } from "../../db/repositories/invites.js";
 import {
   findCurrentApprovedPlan,
@@ -46,6 +45,7 @@ import {
   countSessions,
   countSessionsByStudyIds,
   createUniqueStudyId,
+  expireIdleSessionsForStudy,
   findStudyAggregate,
   findStudyById,
   findStudyTopics,
@@ -56,6 +56,7 @@ import {
   listSessionsForStudy,
   listStudiesOrdered,
   listStudyTopicsByStudyIds,
+  lockStudy,
   touchStudy,
   updateStudyStatus,
 } from "../../db/repositories/studies.js";
@@ -82,7 +83,7 @@ type StudySummaryContext = {
   draftPlanByStudyId: Map<string, StudyPlan>;
   latestInviteByStudyId: Map<
     string,
-    Awaited<ReturnType<typeof listLatestActiveInvitesForStudies>>[number]
+    Awaited<ReturnType<typeof listActiveStudyInvitesForStudies>>[number]
   >;
   topicsByStudyId: Map<string, string[]>;
 };
@@ -351,7 +352,7 @@ function buildStudySummary(
       study.status !== "archived" &&
       counts.total > 0 &&
       counts.active === 0,
-    latestInviteUrl: latestInvite
+    activeInviteUrl: latestInvite
       && study.status !== "completed"
       && study.status !== "archived"
       ? `${appBaseUrl.replace(/\/$/, "")}/interviews/${latestInvite.inviteCode}`
@@ -398,7 +399,7 @@ async function loadStudySummaryContext(
   const [aggregates, countRows, latestInvites, planRows] = await Promise.all([
     listStudyAggregatesByStudyIds(db, studyIds),
     countSessionsByStudyIds(db, studyIds),
-    listLatestActiveInvitesForStudies(db, {
+    listActiveStudyInvitesForStudies(db, {
       now: currentTime,
       studyIds,
     }),
@@ -546,7 +547,6 @@ async function getSessionDebriefResponse(
 
 async function buildSessionItems(
   db: DatabaseExecutor,
-  appBaseUrl: string,
   studyId: string,
   sessions: Awaited<ReturnType<typeof listSessionsForStudy>>,
   topicLabels: string[],
@@ -558,26 +558,15 @@ async function buildSessionItems(
     sessionIds,
     studyId,
   });
-  const activeInvites = await listLatestActiveInvitesForSessions(db, {
-    now: nowIso(),
-    sessionIds,
-  });
 
   const debriefBySessionId = new Map(
     debriefReports.map((report) => [report.sessionId, report]),
   );
   const latestJobBySessionId = new Map<string, (typeof latestJobs)[number]>();
-  const activeInviteBySessionId = new Map<string, (typeof activeInvites)[number]>();
 
   for (const job of latestJobs) {
     if (job.sessionId && !latestJobBySessionId.has(job.sessionId)) {
       latestJobBySessionId.set(job.sessionId, job);
-    }
-  }
-
-  for (const invite of activeInvites) {
-    if (!activeInviteBySessionId.has(invite.sessionId)) {
-      activeInviteBySessionId.set(invite.sessionId, invite);
     }
   }
 
@@ -643,7 +632,6 @@ async function buildSessionItems(
       debriefState?.status === "ready"
         ? debriefReport?.contradictions.length ?? 0
         : latestAnnotation?.contradictions.length ?? 0;
-    const activeInvite = activeInviteBySessionId.get(session.id);
     const debriefStatus = isComplete
       ? debriefState?.status ?? "pending"
       : "unavailable";
@@ -685,9 +673,6 @@ async function buildSessionItems(
       actionTone: "outline",
       debriefError: debriefState?.status === "failed" ? debriefState.error : undefined,
       debriefStatus,
-      inviteUrl: session.sessionStatus === "welcome" && activeInvite
-        ? `${appBaseUrl.replace(/\/$/, "")}/interviews/${activeInvite.inviteCode}`
-        : undefined,
     };
   });
 }
@@ -864,7 +849,8 @@ export async function getStudyDetail(
     throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
   }
 
-  const [aggregate, approvedPlan, draftPlan, sessions, counts, debriefs] =
+  const currentTime = nowIso();
+  const [aggregate, approvedPlan, draftPlan, sessions, counts, debriefs, activeInvite] =
     await Promise.all([
       findStudyAggregate(db, studyId),
       findCurrentApprovedPlan(db, studyId),
@@ -872,6 +858,7 @@ export async function getStudyDetail(
       listSessionsForStudy(db, studyId),
       countSessions(db, studyId),
       listDebriefReportsForStudy(db, studyId),
+      findActiveStudyInviteForStudy(db, studyId, currentTime),
     ]);
   const topics =
     approvedPlan?.topics ??
@@ -883,7 +870,7 @@ export async function getStudyDetail(
       counts,
       topics,
     }),
-    buildSessionItems(db, appBaseUrl, studyId, sessions, topics, debriefs),
+    buildSessionItems(db, studyId, sessions, topics, debriefs),
   ]);
   const recentActivity = buildRecentActivity(sessions, debriefs);
   const analysis = summarizeStudyAnalysis(sessionsForDetail);
@@ -994,6 +981,12 @@ export async function getStudyDetail(
       counts.total > 0 &&
       counts.active === 0,
     canRegeneratePlan: study.status !== "completed" && study.status !== "archived",
+    activeInviteUrl:
+      activeInvite &&
+      study.status !== "completed" &&
+      study.status !== "archived"
+      ? `${appBaseUrl.replace(/\/$/, "")}/interviews/${activeInvite.inviteCode}`
+      : undefined,
     metadata: {
       createdLabel: toRelativeLabel(study.createdAt, "Created"),
       interviewDurationLabel:
@@ -1054,60 +1047,62 @@ export async function createStudyInvite(
 
   ensureStudyPlanIsValid(approvedPlan, "be used to create an invite");
 
-  const createdAt = nowIso();
-  const sessionId = createPrefixedId("session");
-  const inviteId = createPrefixedId("invite");
-  const profileId = createPrefixedId("profile");
-  const inviteCode = await createInviteCode(db);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  return db.transaction(async (tx) => {
+    await lockStudy(tx, studyId);
 
-  await db.transaction(async (tx) => {
-    const counts = await countSessions(tx, studyId);
+    const currentTime = nowIso();
+    await revokeExpiredStudyInvitesForStudy(tx, {
+      now: currentTime,
+      revokedAt: currentTime,
+      studyId,
+    });
 
-    if (counts.total >= study.interviewsTarget) {
-      throw new ApiError(409, "Participant target reached. Increase the target to create more invites.", "PARTICIPANT_TARGET_REACHED");
+    const existingInvite = await findActiveStudyInviteForStudy(tx, studyId, currentTime);
+
+    if (existingInvite) {
+      return {
+        inviteCode: existingInvite.inviteCode,
+        inviteUrl: `${appBaseUrl.replace(/\/$/, "")}/interviews/${existingInvite.inviteCode}`,
+        expiresAt: existingInvite.expiresAt,
+      };
     }
 
-    const participantNumber = counts.total + 1;
+    const createdAt = currentTime;
+    const inviteId = createPrefixedId("invite");
+    const inviteCode = await createInviteCode(tx);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    await createInterviewSession(tx, {
-      id: sessionId,
-      studyId,
-      sessionStatus: "welcome",
-      participantNumber,
-      createdAt,
-      updatedAt: createdAt,
-      completedAt: null,
-    });
+    try {
+      await createStudyInviteRow(tx, {
+        id: inviteId,
+        studyId,
+        inviteCode,
+        createdAt,
+        expiresAt,
+        revokedAt: null,
+      });
+    } catch (error) {
+      if (isUniqueViolationError(error)) {
+        const concurrentInvite = await findActiveStudyInviteForStudy(tx, studyId, currentTime);
 
-    await createInterviewInvite(tx, {
-      id: inviteId,
-      studyId,
-      sessionId,
+        if (concurrentInvite) {
+          return {
+            inviteCode: concurrentInvite.inviteCode,
+            inviteUrl: `${appBaseUrl.replace(/\/$/, "")}/interviews/${concurrentInvite.inviteCode}`,
+            expiresAt: concurrentInvite.expiresAt,
+          };
+        }
+      }
+
+      throw error;
+    }
+
+    return {
       inviteCode,
-      createdAt,
+      inviteUrl: `${appBaseUrl.replace(/\/$/, "")}/interviews/${inviteCode}`,
       expiresAt,
-      revokedAt: null,
-    });
-
-    await createParticipantProfile(tx, {
-      id: profileId,
-      sessionId,
-      responses: {},
-      consentAccepted: false,
-      consentedAt: null,
-    });
-
-    await updateStudyStatus(tx, studyId, "interviewing", createdAt);
-    await refreshStudyAggregate(tx, studyId);
+    };
   });
-
-  return {
-    inviteCode,
-    inviteUrl: `${appBaseUrl.replace(/\/$/, "")}/interviews/${inviteCode}`,
-    expiresAt,
-    sessionId,
-  };
 }
 
 export async function getStudySessionDebrief(
@@ -1161,15 +1156,22 @@ export async function endStudy(
     };
   }
 
-  const counts = await countSessions(db, studyId);
-
-  if (counts.active > 0) {
-    throw new ApiError(409, "All participant sessions must be finished before ending the study.", "ACTIVE_SESSIONS_PREVENT_END");
-  }
-
   const updatedAt = nowIso();
 
   await db.transaction(async (tx) => {
+    await lockStudy(tx, studyId);
+    await expireIdleSessionsForStudy(tx, {
+      cutoff: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      studyId,
+      updatedAt,
+    });
+
+    const counts = await countSessions(tx, studyId);
+
+    if (counts.active > 0) {
+      throw new ApiError(409, "All participant sessions must be finished before ending the study.", "ACTIVE_SESSIONS_PREVENT_END");
+    }
+
     await updateStudyStatus(tx, studyId, "completed", updatedAt);
     await cancelQueuedAnalysisJobsForStudy(tx, studyId, updatedAt);
     await refreshStudyAggregate(tx, studyId);
@@ -1201,15 +1203,22 @@ export async function archiveStudy(
     };
   }
 
-  const counts = await countSessions(db, studyId);
-
-  if (counts.active > 0) {
-    throw new ApiError(409, "All participant sessions must be finished before archiving the study.", "ACTIVE_SESSIONS_PREVENT_ARCHIVE");
-  }
-
   const updatedAt = nowIso();
 
   await db.transaction(async (tx) => {
+    await lockStudy(tx, studyId);
+    await expireIdleSessionsForStudy(tx, {
+      cutoff: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      studyId,
+      updatedAt,
+    });
+
+    const counts = await countSessions(tx, studyId);
+
+    if (counts.active > 0) {
+      throw new ApiError(409, "All participant sessions must be finished before archiving the study.", "ACTIVE_SESSIONS_PREVENT_ARCHIVE");
+    }
+
     await updateStudyStatus(tx, studyId, "archived", updatedAt);
     await cancelQueuedAnalysisJobsForStudy(tx, studyId, updatedAt);
     await refreshStudyAggregate(tx, studyId);

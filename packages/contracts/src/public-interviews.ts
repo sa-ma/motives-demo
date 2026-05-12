@@ -66,7 +66,6 @@ export const InterviewInvitePayloadSchema = Type.Object({
   introCopy: Type.String(),
   inviteCode: Type.String(),
   participantFields: Type.Array(ParticipantIntakeFieldSchema),
-  sessionStatus: InterviewSessionStatusSchema,
   studyTitle: Type.String(),
   topicLabels: Type.Array(Type.String()),
 });
@@ -122,6 +121,25 @@ export const ExpiredInterviewRouteStateSchema = Type.Object({
   kind: Type.Literal("expired"),
 });
 
+export const UnavailableInterviewReasonSchema = Type.Union([
+  Type.Literal("active-cap-reached"),
+  Type.Literal("study-closed"),
+  Type.Literal("target-reached"),
+]);
+
+export type UnavailableInterviewReason = Static<typeof UnavailableInterviewReasonSchema>;
+
+export const UnavailableInterviewRouteStateSchema = Type.Object({
+  invite: InterviewInvitePayloadSchema,
+  kind: Type.Literal("unavailable"),
+  reason: UnavailableInterviewReasonSchema,
+});
+
+export const InviteReadyInterviewRouteStateSchema = Type.Object({
+  invite: InterviewInvitePayloadSchema,
+  kind: Type.Literal("invite-ready"),
+});
+
 export const ReadyInterviewRouteStateSchema = Type.Object({
   invite: InterviewInvitePayloadSchema,
   kind: Type.Literal("ready"),
@@ -131,6 +149,8 @@ export const ReadyInterviewRouteStateSchema = Type.Object({
 export const PublicInterviewRouteStateSchema = Type.Union([
   InvalidInterviewRouteStateSchema,
   ExpiredInterviewRouteStateSchema,
+  UnavailableInterviewRouteStateSchema,
+  InviteReadyInterviewRouteStateSchema,
   ReadyInterviewRouteStateSchema,
 ]);
 

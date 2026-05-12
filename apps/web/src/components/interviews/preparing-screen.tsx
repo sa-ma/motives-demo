@@ -8,7 +8,7 @@ import {
   InterviewCardFrame,
 } from "@/components/interviews/participant-shell";
 import { Button } from "@/components/ui/button";
-import { browserApiClient } from "@/lib/api/client";
+import { callInterviewSessionAction } from "@/lib/interviews/session-client";
 import { cn } from "@/lib/utils";
 
 const preparingSteps = [
@@ -30,7 +30,7 @@ export function PreparingScreen({ inviteCode }: { inviteCode: string }) {
       window.setTimeout(() => {
         startTransition(async () => {
           try {
-            await browserApiClient.publicInterviews.act(inviteCode, {
+            await callInterviewSessionAction(inviteCode, {
               action: "start-room",
             });
           } catch {

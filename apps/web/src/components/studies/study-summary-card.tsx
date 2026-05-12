@@ -82,6 +82,7 @@ const accentClasses = {
 export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
   const queryClient = useQueryClient();
   const accent = accentClasses[study.accent];
+  const hasActiveInvite = Boolean(study.activeInviteUrl);
   const primaryActionHref =
     study.accent === "planning"
       ? `/studies/${study.id}/plan`
@@ -103,10 +104,9 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
     onSuccess: async (invite) => {
       try {
         await copyTextToClipboard(invite.inviteUrl);
-        toast.success("Invite created and copied to clipboard.");
+        toast.success("Invite copied to clipboard.");
       } catch {
-        toast.success("Invite created.");
-        toast.message("Copy it from the interview sessions list.");
+        toast.error("We could not copy the invite link.");
       }
       await queryClient.invalidateQueries({ queryKey: ["studies"] });
     },
@@ -278,9 +278,24 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem
-                  disabled={!study.canStartInterview || createInviteMutation.isPending}
+                  disabled={(!study.canStartInterview && !hasActiveInvite) || createInviteMutation.isPending}
                   onClick={() => {
-                    if (!study.canStartInterview || createInviteMutation.isPending) {
+                    if (createInviteMutation.isPending) {
+                      return;
+                    }
+
+                    if (study.activeInviteUrl) {
+                      void copyTextToClipboard(study.activeInviteUrl)
+                        .then(() => {
+                          toast.success("Invite copied to clipboard.");
+                        })
+                        .catch(() => {
+                          toast.error("We could not copy the invite link.");
+                        });
+                      return;
+                    }
+
+                    if (!study.canStartInterview) {
                       return;
                     }
 
@@ -289,7 +304,11 @@ export function StudySummaryCard({ study }: { study: StudySummaryCardModel }) {
                 >
                   <span className="flex items-center gap-2">
                     <Copy className="size-4 text-zinc-400" />
-                    {createInviteMutation.isPending ? "Creating invite..." : "Create invite"}
+                    {createInviteMutation.isPending
+                      ? "Creating invite..."
+                      : hasActiveInvite
+                        ? "Copy invite"
+                        : "Create invite"}
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

@@ -5,6 +5,7 @@ import { InterviewPublicShell } from "@/components/interviews/participant-shell"
 import { WelcomeScreen } from "@/components/interviews/welcome-screen";
 import { getRedirectPathForStep } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
+import { getUnavailableCopy } from "@/lib/interviews/unavailable-copy";
 
 export default async function InterviewWelcomePage({
   params,
@@ -30,6 +31,24 @@ export default async function InterviewWelcomePage({
         title="This invite has expired"
         description="The interview window for this participant link has closed. Ask the research team for a fresh invite if you still need to take part."
       />
+    );
+  }
+
+  if (routeState.kind === "unavailable") {
+    return (
+      <InterviewInviteState
+        variant="unavailable"
+        title="Interview unavailable"
+        description={getUnavailableCopy(routeState.reason)}
+      />
+    );
+  }
+
+  if (routeState.kind === "invite-ready") {
+    return (
+      <InterviewPublicShell>
+        <WelcomeScreen invite={routeState.invite} />
+      </InterviewPublicShell>
     );
   }
 

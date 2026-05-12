@@ -8,8 +8,7 @@ export const CreateInviteResponseSchema = Type.Object({
   inviteCode: Type.String(),
   inviteUrl: Type.String(),
   expiresAt: Type.String(),
-  sessionId: Type.String(),
+  sessionId: Type.Optional(Type.String()),
 });
 
 export type CreateInviteResponse = Static<typeof CreateInviteResponseSchema>;
-

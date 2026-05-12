@@ -101,7 +101,6 @@ export const StudySessionItemSchema = Type.Object({
     Type.Literal("unavailable"),
   ]),
   debriefError: Type.Optional(Type.String()),
-  inviteUrl: Type.Optional(Type.String()),
 });
 
 export type StudySessionItem = Static<typeof StudySessionItemSchema>;
@@ -131,7 +130,7 @@ export const StudySummarySchema = Type.Object({
   canStartInterview: Type.Boolean(),
   canArchiveStudy: Type.Boolean(),
   canEndStudy: Type.Boolean(),
-  latestInviteUrl: Type.Optional(Type.String()),
+  activeInviteUrl: Type.Optional(Type.String()),
   interviewsCompleted: Type.Number(),
   interviewsTarget: Type.Number(),
   coverage: Type.Number(),
@@ -188,6 +187,7 @@ export const StudyDetailSchema = Type.Object({
   canEditPlan: Type.Boolean(),
   canEndStudy: Type.Boolean(),
   canRegeneratePlan: Type.Boolean(),
+  activeInviteUrl: Type.Optional(Type.String()),
   metadata: Type.Object({
     createdLabel: Type.String(),
     interviewDurationLabel: Type.String(),

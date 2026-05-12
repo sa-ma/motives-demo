@@ -22,7 +22,7 @@ import { InterviewPublicShell } from "@/components/interviews/participant-shell"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { browserApiClient } from "@/lib/api/client";
+import { callInterviewSessionAction } from "@/lib/interviews/session-client";
 import type {
   InterviewInvitePayload,
   InterviewProgressState,
@@ -152,14 +152,14 @@ export function InterviewRoom({
                   onClick={() => {
                     startEndingInterview(async () => {
                       try {
-                        await browserApiClient.publicInterviews.act(invite.inviteCode, {
+                        await callInterviewSessionAction(invite.inviteCode, {
                           action: "complete",
                         });
                       } catch {
                         return;
                       }
 
-                      router.replace(`/interviews/${invite.inviteCode}/complete`);
+                      router.replace(`/interviews/${invite.inviteCode}/complete?source=finished`);
                     });
                   }}
                   className="rounded-md border-rose-200 bg-white text-rose-600 shadow-none hover:bg-rose-50 hover:text-rose-700"

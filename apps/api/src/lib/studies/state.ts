@@ -64,7 +64,7 @@ export function computeStudyStatus(
     return "analyzing";
   }
 
-  if (counts.total > 0) {
+  if (counts.completed > 0) {
     return "interviewing";
   }
 

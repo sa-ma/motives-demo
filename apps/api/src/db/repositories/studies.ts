@@ -24,6 +24,50 @@ export async function findStudyById(db: DatabaseExecutor, studyId: string) {
   });
 }
 
+export async function lockStudy(db: DatabaseExecutor, studyId: string) {
+  await db.execute(sql`select id from study where id = ${studyId} for update`);
+}
+
+export async function expireIdleSessionsForStudy(
+  db: DatabaseExecutor,
+  options: {
+    cutoff: string;
+    studyId: string;
+    updatedAt: string;
+  },
+) {
+  await db.execute(sql`
+    update interview_session
+    set
+      session_status = 'expired',
+      updated_at = ${options.updatedAt}
+    where
+      study_id = ${options.studyId}
+      and session_status in ('welcome', 'details', 'preparing', 'room')
+      and coalesce(last_activity_at, updated_at) <= ${options.cutoff}
+  `);
+}
+
+export async function expireIdleSessionById(
+  db: DatabaseExecutor,
+  options: {
+    cutoff: string;
+    sessionId: string;
+    updatedAt: string;
+  },
+) {
+  await db.execute(sql`
+    update interview_session
+    set
+      session_status = 'expired',
+      updated_at = ${options.updatedAt}
+    where
+      id = ${options.sessionId}
+      and session_status in ('welcome', 'details', 'preparing', 'room')
+      and coalesce(last_activity_at, updated_at) <= ${options.cutoff}
+  `);
+}
+
 export async function listStudiesOrdered(
   db: DatabaseExecutor,
   query: ListStudiesQuery = {},

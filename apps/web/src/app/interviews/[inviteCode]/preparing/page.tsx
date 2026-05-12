@@ -5,6 +5,7 @@ import { InterviewPublicShell } from "@/components/interviews/participant-shell"
 import { PreparingScreen } from "@/components/interviews/preparing-screen";
 import { getRedirectPathForStep } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
+import { getUnavailableCopy } from "@/lib/interviews/unavailable-copy";
 
 export default async function InterviewPreparingPage({
   params,
@@ -31,6 +32,20 @@ export default async function InterviewPreparingPage({
         description="The interview window for this participant link has closed. Ask the research team for a fresh invite if you still need to take part."
       />
     );
+  }
+
+  if (routeState.kind === "unavailable") {
+    return (
+      <InterviewInviteState
+        variant="unavailable"
+        title="Interview unavailable"
+        description={getUnavailableCopy(routeState.reason)}
+      />
+    );
+  }
+
+  if (routeState.kind === "invite-ready") {
+    redirect(`/interviews/${routeState.invite.inviteCode}/welcome`);
   }
 
   const redirectPath = getRedirectPathForStep(

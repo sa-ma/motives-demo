@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-import { getInterviewRouteState, updateInterviewSession } from "@/lib/interviews/session";
+import {
+  getInterviewSessionCookieName,
+  INTERVIEW_SESSION_TOKEN_HEADER,
+} from "@/lib/interviews/session-token";
 
 type SessionAction =
   | "advance-to-details"
@@ -13,52 +17,48 @@ export async function POST(
   { params }: { params: Promise<{ inviteCode: string }> },
 ) {
   const { inviteCode } = await params;
-  const routeState = await getInterviewRouteState(inviteCode);
-
-  if (routeState.kind !== "ready") {
-    return NextResponse.json(
-      { error: "Interview invite is not available." },
-      { status: routeState.kind === "invalid" ? 404 : 410 },
-    );
-  }
-
   const payload = (await request.json().catch(() => ({}))) as {
     action?: SessionAction;
+    consentAccepted?: boolean;
     participantResponses?: Record<string, boolean | string>;
   };
 
-  switch (payload.action) {
-    case "advance-to-details":
-      await updateInterviewSession(inviteCode, { sessionStatus: "details" });
-      break;
-    case "submit-details":
-      await updateInterviewSession(inviteCode, {
-        participantResponses: payload.participantResponses ?? {},
-        sessionStatus: "preparing",
-      });
-      break;
-    case "start-room":
-      await updateInterviewSession(inviteCode, { sessionStatus: "room" });
-      break;
-    case "complete":
-      await updateInterviewSession(inviteCode, { sessionStatus: "complete" });
-      break;
-    default:
-      return NextResponse.json(
-        { error: "Unsupported session action." },
-        { status: 400 },
-      );
-  }
-
-  const nextRouteState = await getInterviewRouteState(inviteCode);
-
-  if (nextRouteState.kind !== "ready") {
-    return NextResponse.json({ ok: true });
-  }
-
-  return NextResponse.json({
-    ok: true,
-    participantResponses: nextRouteState.session.participantResponses,
-    sessionStatus: nextRouteState.session.sessionStatus,
+  const sessionCookieName = getInterviewSessionCookieName(inviteCode);
+  const sessionToken = (await cookies()).get(sessionCookieName)?.value;
+  const upstreamResponse = await fetch(
+    `${process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001"}/v1/public/interviews/${inviteCode}/actions`,
+    {
+      body: JSON.stringify(payload),
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        ...(sessionToken
+          ? {
+              [INTERVIEW_SESSION_TOKEN_HEADER]: sessionToken,
+            }
+          : {}),
+      },
+      method: "POST",
+    },
+  );
+  const responseText = await upstreamResponse.text();
+  const nextResponse = new NextResponse(responseText, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText,
   });
+  const issuedSessionToken = upstreamResponse.headers.get(INTERVIEW_SESSION_TOKEN_HEADER);
+
+  if (issuedSessionToken) {
+    nextResponse.cookies.set(sessionCookieName, issuedSessionToken, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+
+  return nextResponse;
 }

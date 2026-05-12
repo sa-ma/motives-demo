@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import type {
   InterviewInvitePayload,
@@ -6,7 +6,6 @@ import type {
   InterviewMessageMetadata,
   InterviewProgressState,
   InterviewSessionState,
-  InterviewSessionStatus,
   ParticipantIntakeField,
   ParticipantResponses,
   PublicInterviewActionInput,
@@ -18,9 +17,13 @@ import type { StudyPlan } from "@motives-ai/contracts";
 import type { AppDatabase, DatabaseExecutor } from "../../db/client.js";
 import { enqueueSessionDebriefJob } from "../analysis/queue.js";
 import {
+  createInterviewSession,
+  createParticipantProfile,
   findInviteWithSession,
   findParticipantProfileBySessionId,
+  findSessionByBrowserSessionTokenHash,
   findSessionById,
+  findStudyInviteByCode,
   updateInterviewSessionState,
   updateParticipantProfileBySessionId,
 } from "../../db/repositories/invites.js";
@@ -38,8 +41,12 @@ import {
   lockInterviewSession,
 } from "../../db/repositories/public-interviews.js";
 import {
+  countSessions,
+  expireIdleSessionById,
+  expireIdleSessionsForStudy,
   findParticipantFields,
   findStudyById,
+  lockStudy,
   touchStudy,
 } from "../../db/repositories/studies.js";
 import { ApiError } from "../errors.js";
@@ -52,6 +59,20 @@ const DEFAULT_INTRO_COPY =
   "You're invited to take part in an AI-led research interview. The interviewer will ask about your experiences and opinions, and you can skip any question at any time.";
 const DEFAULT_CONSENT_COPY =
   "I understand this is an AI-led research interview and my responses may be analyzed for research purposes.";
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+export const INTERVIEW_SESSION_TOKEN_HEADER = "x-interview-session-token";
+
+type SharedInviteRow = NonNullable<Awaited<ReturnType<typeof findStudyInviteByCode>>>;
+type LegacyInviteBundle = NonNullable<Awaited<ReturnType<typeof findInviteWithSession>>>;
+type InviteRef = {
+  inviteCode: string;
+  studyId: string;
+};
+
+type UnavailableInterviewReason =
+  | "active-cap-reached"
+  | "study-closed"
+  | "target-reached";
 
 type PreparedPublicInterviewChatTurn =
   | {
@@ -78,6 +99,23 @@ type FinalizedPublicInterviewChatTurn = {
   assistantTurn: InterviewMessage;
 };
 
+type PublicInterviewActionResult = {
+  issuedSessionToken?: string;
+  response: PublicInterviewActionResponse;
+};
+
+type SessionScope =
+  | {
+      invite: InviteRef;
+      kind: "legacy";
+      sessionId: string;
+    }
+  | {
+      invite: InviteRef;
+      kind: "shared";
+      sessionId: string;
+    };
+
 function resolveParticipantFields(
   fields: ParticipantIntakeField[],
 ): ParticipantIntakeField[] {
@@ -87,6 +125,20 @@ function resolveParticipantFields(
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function getSessionTimeoutCutoff(reference = Date.now()) {
+  return new Date(reference - SESSION_TIMEOUT_MS).toISOString();
+}
+
+function isStudyClosed(
+  study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>,
+) {
+  return study.status === "archived" || study.status === "completed";
+}
+
+function isInviteExpired(invite: { expiresAt: string; revokedAt: string | null }) {
+  return invite.revokedAt !== null || new Date(invite.expiresAt).getTime() <= Date.now();
 }
 
 function toDisplayTimestamp(value: string) {
@@ -100,47 +152,12 @@ function createPrefixedId(prefix: string) {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`;
 }
 
-async function getInviteRoutePayload(
-  db: DatabaseExecutor,
-  invite: NonNullable<Awaited<ReturnType<typeof findInviteWithSession>>>["invite"],
-  sessionStatus: InterviewSessionStatus,
-): Promise<InterviewInvitePayload> {
-  const study = await findStudyById(db, invite.studyId);
-
-  if (!study) {
-    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
-  }
-
-  const approvedPlan = await findCurrentApprovedPlan(db, study.id);
-
-  if (!approvedPlan) {
-    throw new ApiError(409, "Approved plan not found for invite.", "APPROVED_PLAN_NOT_FOUND");
-  }
-
-  return {
-    consentCopy: DEFAULT_CONSENT_COPY,
-    estimatedDuration:
-      approvedPlan.estimatedDurationLabel ??
-      formatEstimatedInterviewDuration(
-        approvedPlan.estimatedDurationMinutes ?? 15,
-      ),
-    formatLabel: DEFAULT_FORMAT_LABEL,
-    introCopy: DEFAULT_INTRO_COPY,
-    inviteCode: invite.inviteCode,
-    participantFields: resolveParticipantFields(await findParticipantFields(db, study.id)),
-    sessionStatus,
-    studyTitle: study.title,
-    topicLabels: approvedPlan.topics,
-  };
+function createBrowserSessionToken() {
+  return randomBytes(24).toString("base64url");
 }
 
-async function getTranscript(
-  db: DatabaseExecutor,
-  sessionId: string,
-): Promise<InterviewMessage[]> {
-  const rows = await listTranscriptForSession(db, sessionId);
-
-  return rows.map(mapTranscriptTurnToMessage);
+function hashBrowserSessionToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 function normalizeProgressState(
@@ -200,35 +217,57 @@ function mapTranscriptTurnToMessage(
   };
 }
 
-export async function getPublicInterviewRouteState(
-  db: AppDatabase,
-  inviteCode: string,
+async function getInviteRoutePayload(
+  db: DatabaseExecutor,
+  invite: InviteRef,
+): Promise<InterviewInvitePayload> {
+  const study = await findStudyById(db, invite.studyId);
+
+  if (!study) {
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
+  }
+
+  const approvedPlan = await findCurrentApprovedPlan(db, study.id);
+
+  if (!approvedPlan) {
+    throw new ApiError(409, "Approved plan not found for invite.", "APPROVED_PLAN_NOT_FOUND");
+  }
+
+  return {
+    consentCopy: DEFAULT_CONSENT_COPY,
+    estimatedDuration:
+      approvedPlan.estimatedDurationLabel ??
+      formatEstimatedInterviewDuration(
+        approvedPlan.estimatedDurationMinutes ?? 15,
+      ),
+    formatLabel: DEFAULT_FORMAT_LABEL,
+    introCopy: DEFAULT_INTRO_COPY,
+    inviteCode: invite.inviteCode,
+    participantFields: resolveParticipantFields(await findParticipantFields(db, study.id)),
+    studyTitle: study.title,
+    topicLabels: approvedPlan.topics,
+  };
+}
+
+async function getTranscript(
+  db: DatabaseExecutor,
+  sessionId: string,
+): Promise<InterviewMessage[]> {
+  const rows = await listTranscriptForSession(db, sessionId);
+
+  return rows.map(mapTranscriptTurnToMessage);
+}
+
+async function buildReadyRouteState(
+  db: DatabaseExecutor,
+  invite: InviteRef,
+  session: NonNullable<Awaited<ReturnType<typeof findSessionById>>>,
 ): Promise<PublicInterviewRouteState> {
-  const inviteBundle = await findInviteWithSession(db, inviteCode);
-
-  if (!inviteBundle) {
-    return {
-      inviteCode: inviteCode.toUpperCase(),
-      kind: "invalid",
-    };
-  }
-
-  const { invite, session } = inviteBundle;
-  const isExpired =
-    invite.revokedAt !== null || new Date(invite.expiresAt).getTime() <= Date.now();
-
-  if (isExpired) {
-    return {
-      invite: await getInviteRoutePayload(db, invite, "expired"),
-      kind: "expired",
-    };
-  }
-
-  const [latestAnnotation, profile, transcript, invitePayload] = await Promise.all([
+  const invitePayload = await getInviteRoutePayload(db, invite);
+  const [latestAnnotation, profile, transcript] = await Promise.all([
     findLatestSessionAnnotation(db, session.id),
     findParticipantProfileBySessionId(db, session.id),
     getTranscript(db, session.id),
-    getInviteRoutePayload(db, invite, session.sessionStatus),
   ]);
   const participantResponses = profile?.responses ?? {};
   const sessionState: InterviewSessionState = {
@@ -248,6 +287,518 @@ export async function getPublicInterviewRouteState(
   };
 }
 
+async function expireSessionIfIdle(
+  db: DatabaseExecutor,
+  sessionId: string,
+) {
+  const updatedAt = nowIso();
+  await expireIdleSessionById(db, {
+    cutoff: getSessionTimeoutCutoff(),
+    sessionId,
+    updatedAt,
+  });
+  return findSessionById(db, sessionId);
+}
+
+async function resolveSharedScopedSession(
+  db: DatabaseExecutor,
+  invite: SharedInviteRow,
+  sessionToken?: string,
+) {
+  if (!sessionToken) {
+    return null;
+  }
+
+  const session = await findSessionByBrowserSessionTokenHash(
+    db,
+    hashBrowserSessionToken(sessionToken),
+  );
+
+  if (!session || session.studyId !== invite.studyId) {
+    return null;
+  }
+
+  return expireSessionIfIdle(db, session.id);
+}
+
+async function buildUnavailableOrReadySharedState(
+  db: AppDatabase,
+  invite: SharedInviteRow,
+  study: NonNullable<Awaited<ReturnType<typeof findStudyById>>>,
+): Promise<PublicInterviewRouteState> {
+  const updatedAt = nowIso();
+  await expireIdleSessionsForStudy(db, {
+    cutoff: getSessionTimeoutCutoff(),
+    studyId: invite.studyId,
+    updatedAt,
+  });
+
+  const [counts, payload] = await Promise.all([
+    countSessions(db, invite.studyId),
+    getInviteRoutePayload(db, {
+      inviteCode: invite.inviteCode,
+      studyId: invite.studyId,
+    }),
+  ]);
+
+  let reason: UnavailableInterviewReason | null = null;
+
+  if (isStudyClosed(study)) {
+    reason = "study-closed";
+  } else if (counts.completed >= study.interviewsTarget) {
+    reason = "target-reached";
+  } else if ((counts.completed + counts.active) >= study.interviewsTarget) {
+    reason = "active-cap-reached";
+  }
+
+  if (reason) {
+    return {
+      invite: payload,
+      kind: "unavailable",
+      reason,
+    };
+  }
+
+  return {
+    invite: payload,
+    kind: "invite-ready",
+  };
+}
+
+async function getSharedInviteRouteState(
+  db: AppDatabase,
+  invite: SharedInviteRow,
+  sessionToken?: string,
+): Promise<PublicInterviewRouteState> {
+  const payload = await getInviteRoutePayload(db, {
+    inviteCode: invite.inviteCode,
+    studyId: invite.studyId,
+  });
+
+  const session = await resolveSharedScopedSession(db, invite, sessionToken);
+
+  if (session && session.sessionStatus !== "expired") {
+    return buildReadyRouteState(db, {
+      inviteCode: invite.inviteCode,
+      studyId: invite.studyId,
+    }, session);
+  }
+
+  if (isInviteExpired(invite)) {
+    return {
+      invite: payload,
+      kind: "expired",
+    };
+  }
+
+  const study = await findStudyById(db, invite.studyId);
+
+  if (!study) {
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
+  }
+
+  return buildUnavailableOrReadySharedState(db, invite, study);
+}
+
+async function getLegacyInviteRouteState(
+  db: AppDatabase,
+  inviteBundle: LegacyInviteBundle,
+): Promise<PublicInterviewRouteState> {
+  const { invite } = inviteBundle;
+  const session = await expireSessionIfIdle(db, inviteBundle.session.id);
+  const payload = await getInviteRoutePayload(db, {
+    inviteCode: invite.inviteCode,
+    studyId: invite.studyId,
+  });
+
+  if (isInviteExpired(invite) || !session || session.sessionStatus === "expired") {
+    return {
+      invite: payload,
+      kind: "expired",
+    };
+  }
+
+  return buildReadyRouteState(db, {
+    inviteCode: invite.inviteCode,
+    studyId: invite.studyId,
+  }, session);
+}
+
+async function resolveSessionScope(
+  db: AppDatabase,
+  inviteCode: string,
+  sessionToken?: string,
+): Promise<SessionScope | null> {
+  const sharedInvite = await findStudyInviteByCode(db, inviteCode);
+
+  if (sharedInvite) {
+    const session = await resolveSharedScopedSession(db, sharedInvite, sessionToken);
+
+    if (!session || session.sessionStatus === "expired") {
+      return null;
+    }
+
+    return {
+      invite: {
+        inviteCode: sharedInvite.inviteCode,
+        studyId: sharedInvite.studyId,
+      },
+      kind: "shared",
+      sessionId: session.id,
+    };
+  }
+
+  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
+
+  if (!legacyInviteBundle) {
+    return null;
+  }
+
+  const session = await expireSessionIfIdle(db, legacyInviteBundle.session.id);
+
+  if (!session || session.sessionStatus === "expired") {
+    return null;
+  }
+
+  return {
+    invite: {
+      inviteCode: legacyInviteBundle.invite.inviteCode,
+      studyId: legacyInviteBundle.invite.studyId,
+    },
+    kind: "legacy",
+    sessionId: session.id,
+  };
+}
+
+async function prepareChatForSession(
+  tx: DatabaseExecutor,
+  scope: SessionScope,
+  input: {
+    clientMessageId: string;
+    userText: string;
+  },
+): Promise<PreparedPublicInterviewChatTurn> {
+  await lockInterviewSession(tx, scope.sessionId);
+
+  const lockedSession = await findSessionById(tx, scope.sessionId);
+  const profile = await findParticipantProfileBySessionId(tx, scope.sessionId);
+  const study = await findStudyById(tx, scope.invite.studyId);
+  const approvedPlan = await findCurrentApprovedPlan(tx, scope.invite.studyId);
+
+  if (!lockedSession || !profile || !study) {
+    throw new ApiError(500, "Interview session state is missing.");
+  }
+
+  if (lockedSession.sessionStatus !== "room") {
+    throw new ApiError(409, "Interview session is not active.");
+  }
+
+  if (!approvedPlan) {
+    throw new ApiError(409, "Approved plan not found for this interview.");
+  }
+
+  const existingUserTurn = await findTranscriptTurnByClientMessageId(
+    tx,
+    scope.sessionId,
+    input.clientMessageId,
+  );
+
+  let userTurn = existingUserTurn;
+  const createdAt = nowIso();
+
+  if (!userTurn) {
+    const nextSortOrder = await getNextTranscriptSortOrder(tx, scope.sessionId);
+    userTurn = await insertTranscriptTurn(tx, {
+      clientMessageId: input.clientMessageId,
+      createdAt,
+      finishReason: null,
+      id: createPrefixedId("turn"),
+      model: null,
+      providerResponseId: null,
+      role: "user",
+      sessionId: scope.sessionId,
+      sortOrder: nextSortOrder,
+      text: input.userText,
+      timestampLabel: toDisplayTimestamp(createdAt),
+    });
+  }
+
+  await updateInterviewSessionState(tx, scope.sessionId, {
+    lastActivityAt: createdAt,
+    updatedAt: createdAt,
+  });
+
+  const transcript = await listTranscriptForSession(tx, scope.sessionId);
+  const latestAnnotation = await findLatestSessionAnnotation(tx, scope.sessionId);
+  const nextTurn = await findNextTranscriptTurn(tx, scope.sessionId, userTurn.sortOrder);
+  const baseProgressState = latestAnnotation
+    ? normalizeProgressState(approvedPlan.topics, latestAnnotation.progressState)
+    : buildFallbackAnnotationState(approvedPlan.topics, transcript);
+
+  if (nextTurn?.role === "assistant") {
+    const nextAnnotation = await findAnnotationByAssistantTurnId(tx, nextTurn.id);
+    const assistantTurn = mapTranscriptTurnToMessage(nextTurn);
+    const progressState = nextAnnotation
+      ? normalizeProgressState(approvedPlan.topics, nextAnnotation.progressState)
+      : buildFallbackAnnotationState(
+          approvedPlan.topics,
+          transcript.map(mapTranscriptTurnToMessage),
+        );
+
+    return {
+      assistantMetadata: buildAssistantMetadata(progressState, assistantTurn),
+      assistantTurn,
+      kind: "replay",
+    };
+  }
+
+  return {
+    inviteCode: scope.invite.inviteCode,
+    kind: "generate",
+    participantResponses: profile.responses ?? {},
+    plan: approvedPlan,
+    progressState: baseProgressState,
+    sessionId: scope.sessionId,
+    study,
+    topicLabels: approvedPlan.topics,
+    transcript,
+    userTurn,
+  };
+}
+
+async function performSessionAction(
+  tx: DatabaseExecutor,
+  scope: SessionScope,
+  input: PublicInterviewActionInput,
+): Promise<PublicInterviewActionResponse> {
+  await lockInterviewSession(tx, scope.sessionId);
+
+  const lockedSession = await findSessionById(tx, scope.sessionId);
+  const lockedProfile = await findParticipantProfileBySessionId(tx, scope.sessionId);
+
+  if (!lockedSession || !lockedProfile) {
+    throw new ApiError(500, "Interview session state is missing.");
+  }
+
+  const updatedAt = nowIso();
+
+  switch (input.action) {
+    case "advance-to-details":
+      if (lockedSession.sessionStatus === "welcome") {
+        await updateInterviewSessionState(tx, scope.sessionId, {
+          lastActivityAt: updatedAt,
+          sessionStatus: "details",
+          updatedAt,
+        });
+      }
+      break;
+    case "submit-details": {
+      if (!input.consentAccepted) {
+        throw new ApiError(400, "Consent is required before continuing.");
+      }
+
+      await updateParticipantProfileBySessionId(tx, scope.sessionId, {
+        responses: input.participantResponses ?? {},
+        consentAccepted: true,
+        consentedAt: lockedProfile.consentedAt ?? updatedAt,
+      });
+
+      if (
+        lockedSession.sessionStatus === "welcome" ||
+        lockedSession.sessionStatus === "details" ||
+        lockedSession.sessionStatus === "preparing"
+      ) {
+        await updateInterviewSessionState(tx, scope.sessionId, {
+          lastActivityAt: updatedAt,
+          sessionStatus: "preparing",
+          updatedAt,
+        });
+      }
+      break;
+    }
+    case "start-room": {
+      const approvedPlan = await findCurrentApprovedPlan(tx, scope.invite.studyId);
+
+      if (!approvedPlan) {
+        throw new ApiError(409, "Approved plan not found for this interview.");
+      }
+
+      if (
+        lockedSession.sessionStatus === "welcome" ||
+        lockedSession.sessionStatus === "details" ||
+        lockedSession.sessionStatus === "preparing"
+      ) {
+        await updateInterviewSessionState(tx, scope.sessionId, {
+          lastActivityAt: updatedAt,
+          sessionStatus: "room",
+          updatedAt,
+        });
+      }
+
+      if (lockedSession.sessionStatus !== "complete") {
+        const existingTurn = await hasTranscriptTurns(tx, scope.sessionId);
+
+        if (!existingTurn) {
+          await insertTranscriptTurn(tx, {
+            id: createPrefixedId("turn"),
+            sessionId: scope.sessionId,
+            role: "assistant",
+            text: approvedPlan.openingQuestion,
+            timestampLabel: toDisplayTimestamp(updatedAt),
+            createdAt: updatedAt,
+            sortOrder: 0,
+          });
+        }
+      }
+      break;
+    }
+    case "complete":
+      if (lockedSession.sessionStatus !== "complete") {
+        await updateInterviewSessionState(tx, scope.sessionId, {
+          completedAt: lockedSession.completedAt ?? updatedAt,
+          lastActivityAt: updatedAt,
+          sessionStatus: "complete",
+          updatedAt,
+        });
+
+        const currentStudy = await findStudyById(tx, scope.invite.studyId);
+
+        if (
+          currentStudy &&
+          currentStudy.status !== "completed" &&
+          currentStudy.status !== "archived"
+        ) {
+          await enqueueSessionDebriefJob(tx, scope.invite.studyId, scope.sessionId, updatedAt);
+        }
+      }
+      break;
+    default:
+      throw new ApiError(400, "Unsupported session action.");
+  }
+
+  await touchStudy(tx, scope.invite.studyId, updatedAt);
+  await refreshStudyStatus(tx, scope.invite.studyId, updatedAt);
+  await refreshStudyAggregate(tx, scope.invite.studyId);
+
+  const refreshedSession = await findSessionById(tx, scope.sessionId);
+  const refreshedProfile = await findParticipantProfileBySessionId(tx, scope.sessionId);
+
+  if (!refreshedSession || !refreshedProfile) {
+    throw new ApiError(500, "Failed to reload interview session.");
+  }
+
+  return {
+    ok: true,
+    participantResponses: refreshedProfile.responses ?? {},
+    sessionStatus: refreshedSession.sessionStatus,
+  };
+}
+
+async function createSharedInviteSession(
+  tx: DatabaseExecutor,
+  invite: SharedInviteRow,
+): Promise<{
+  response: PublicInterviewActionResponse;
+  issuedSessionToken: string;
+}> {
+  await lockStudy(tx, invite.studyId);
+
+  const updatedAt = nowIso();
+  await expireIdleSessionsForStudy(tx, {
+    cutoff: getSessionTimeoutCutoff(),
+    studyId: invite.studyId,
+    updatedAt,
+  });
+
+  const [study, approvedPlan, counts] = await Promise.all([
+    findStudyById(tx, invite.studyId),
+    findCurrentApprovedPlan(tx, invite.studyId),
+    countSessions(tx, invite.studyId),
+  ]);
+
+  if (!study) {
+    throw new ApiError(404, "Study not found.", "STUDY_NOT_FOUND");
+  }
+
+  if (isStudyClosed(study)) {
+    throw new ApiError(409, "This study is no longer accepting interviews.", "STUDY_CLOSED");
+  }
+
+  if (!approvedPlan) {
+    throw new ApiError(409, "Approved plan not found for this interview.", "APPROVED_PLAN_NOT_FOUND");
+  }
+
+  if (counts.completed >= study.interviewsTarget) {
+    throw new ApiError(409, "Interview target reached.", "TARGET_REACHED");
+  }
+
+  if ((counts.completed + counts.active) >= study.interviewsTarget) {
+    throw new ApiError(409, "All interview slots are currently occupied.", "ACTIVE_INTERVIEW_CAP_REACHED");
+  }
+
+  const sessionId = createPrefixedId("session");
+  const profileId = createPrefixedId("profile");
+  const participantNumber = counts.total + 1;
+  const browserSessionToken = createBrowserSessionToken();
+  const browserSessionTokenHash = hashBrowserSessionToken(browserSessionToken);
+
+  await createInterviewSession(tx, {
+    browserSessionTokenHash,
+    completedAt: null,
+    createdAt: updatedAt,
+    id: sessionId,
+    lastActivityAt: updatedAt,
+    participantNumber,
+    sessionStatus: "details",
+    studyId: invite.studyId,
+    updatedAt,
+  });
+
+  await createParticipantProfile(tx, {
+    consentAccepted: false,
+    consentedAt: null,
+    id: profileId,
+    responses: {},
+    sessionId,
+  });
+
+  await touchStudy(tx, invite.studyId, updatedAt);
+  await refreshStudyStatus(tx, invite.studyId, updatedAt);
+  await refreshStudyAggregate(tx, invite.studyId);
+
+  return {
+    issuedSessionToken: browserSessionToken,
+    response: {
+      ok: true,
+      participantResponses: {},
+      sessionStatus: "details",
+    },
+  };
+}
+
+export async function getPublicInterviewRouteState(
+  db: AppDatabase,
+  inviteCode: string,
+  sessionToken?: string,
+): Promise<PublicInterviewRouteState> {
+  const sharedInvite = await findStudyInviteByCode(db, inviteCode);
+
+  if (sharedInvite) {
+    return getSharedInviteRouteState(db, sharedInvite, sessionToken);
+  }
+
+  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
+
+  if (!legacyInviteBundle) {
+    return {
+      inviteCode: inviteCode.toUpperCase(),
+      kind: "invalid",
+    };
+  }
+
+  return getLegacyInviteRouteState(db, legacyInviteBundle);
+}
+
 export async function preparePublicInterviewChatTurn(
   db: AppDatabase,
   inviteCode: string,
@@ -255,102 +806,43 @@ export async function preparePublicInterviewChatTurn(
     clientMessageId: string;
     userText: string;
   },
+  sessionToken?: string,
 ): Promise<PreparedPublicInterviewChatTurn> {
-  const inviteBundle = await findInviteWithSession(db, inviteCode);
+  const sharedInvite = await findStudyInviteByCode(db, inviteCode);
 
-  if (!inviteBundle) {
-    throw new ApiError(404, "Interview invite is not available.");
+  if (sharedInvite) {
+    const scope = await resolveSessionScope(db, inviteCode, sessionToken);
+
+    if (scope) {
+      return db.transaction(async (tx) => prepareChatForSession(tx, scope, input));
+    }
+
+    if (isInviteExpired(sharedInvite)) {
+      throw new ApiError(410, "Interview invite has expired.", "INVITE_EXPIRED");
+    }
+
+    if (!scope) {
+      throw new ApiError(409, "Interview session is not active.", "INTERVIEW_SESSION_INACTIVE");
+    }
   }
 
-  const { invite, session } = inviteBundle;
+  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
 
-  if (invite.revokedAt !== null || new Date(invite.expiresAt).getTime() <= Date.now()) {
-    throw new ApiError(410, "Interview invite has expired.");
+  if (!legacyInviteBundle) {
+    throw new ApiError(404, "Interview invite is not available.", "INVITE_NOT_FOUND");
   }
 
-  return db.transaction(async (tx) => {
-    await lockInterviewSession(tx, session.id);
+  if (isInviteExpired(legacyInviteBundle.invite)) {
+    throw new ApiError(410, "Interview invite has expired.", "INVITE_EXPIRED");
+  }
 
-    const lockedSession = await findSessionById(tx, session.id);
-    const profile = await findParticipantProfileBySessionId(tx, session.id);
-    const study = await findStudyById(tx, invite.studyId);
-    const approvedPlan = await findCurrentApprovedPlan(tx, invite.studyId);
+  const scope = await resolveSessionScope(db, inviteCode, sessionToken);
 
-    if (!lockedSession || !profile || !study) {
-      throw new ApiError(500, "Interview session state is missing.");
-    }
+  if (!scope) {
+    throw new ApiError(409, "Interview session is not active.", "INTERVIEW_SESSION_INACTIVE");
+  }
 
-    if (lockedSession.sessionStatus !== "room") {
-      throw new ApiError(409, "Interview session is not active.");
-    }
-
-    if (!approvedPlan) {
-      throw new ApiError(409, "Approved plan not found for this interview.");
-    }
-
-    const existingUserTurn = await findTranscriptTurnByClientMessageId(
-      tx,
-      session.id,
-      input.clientMessageId,
-    );
-
-    let userTurn = existingUserTurn;
-
-    if (!userTurn) {
-      const createdAt = nowIso();
-      const nextSortOrder = await getNextTranscriptSortOrder(tx, session.id);
-      userTurn = await insertTranscriptTurn(tx, {
-        clientMessageId: input.clientMessageId,
-        createdAt,
-        finishReason: null,
-        id: createPrefixedId("turn"),
-        model: null,
-        providerResponseId: null,
-        role: "user",
-        sessionId: session.id,
-        sortOrder: nextSortOrder,
-        text: input.userText,
-        timestampLabel: toDisplayTimestamp(createdAt),
-      });
-    }
-
-    const transcript = await listTranscriptForSession(tx, session.id);
-    const latestAnnotation = await findLatestSessionAnnotation(tx, session.id);
-    const nextTurn = await findNextTranscriptTurn(tx, session.id, userTurn.sortOrder);
-    const baseProgressState = latestAnnotation
-      ? normalizeProgressState(approvedPlan.topics, latestAnnotation.progressState)
-      : buildFallbackAnnotationState(approvedPlan.topics, transcript);
-
-    if (nextTurn?.role === "assistant") {
-      const nextAnnotation = await findAnnotationByAssistantTurnId(tx, nextTurn.id);
-      const assistantTurn = mapTranscriptTurnToMessage(nextTurn);
-      const progressState = nextAnnotation
-        ? normalizeProgressState(approvedPlan.topics, nextAnnotation.progressState)
-        : buildFallbackAnnotationState(
-            approvedPlan.topics,
-            transcript.map(mapTranscriptTurnToMessage),
-          );
-
-      return {
-        assistantMetadata: buildAssistantMetadata(progressState, assistantTurn),
-        assistantTurn,
-        kind: "replay",
-      };
-    }
-
-    return {
-      inviteCode: invite.inviteCode,
-      kind: "generate",
-      participantResponses: profile.responses ?? {},
-      plan: approvedPlan,
-      progressState: baseProgressState,
-      sessionId: session.id,
-      study,
-      topicLabels: approvedPlan.topics,
-      transcript,
-      userTurn,
-    };
-  });
+  return db.transaction(async (tx) => prepareChatForSession(tx, scope, input));
 }
 
 export async function finalizePublicInterviewChatTurn(
@@ -410,6 +902,11 @@ export async function finalizePublicInterviewChatTurn(
       sessionId: prepared.sessionId,
       userTurnId: prepared.userTurn.id,
     });
+
+    await updateInterviewSessionState(tx, prepared.sessionId, {
+      lastActivityAt: createdAt,
+      updatedAt: createdAt,
+    });
   });
 
   return {
@@ -423,136 +920,50 @@ export async function performPublicInterviewAction(
   db: AppDatabase,
   inviteCode: string,
   input: PublicInterviewActionInput,
-): Promise<PublicInterviewActionResponse> {
-  const inviteBundle = await findInviteWithSession(db, inviteCode);
+  sessionToken?: string,
+): Promise<PublicInterviewActionResult> {
+  const sharedInvite = await findStudyInviteByCode(db, inviteCode);
 
-  if (!inviteBundle) {
+  if (sharedInvite) {
+    const existingScope = await resolveSessionScope(db, inviteCode, sessionToken);
+
+    if (existingScope) {
+      return {
+        response: await db.transaction(async (tx) => performSessionAction(tx, existingScope, input)),
+      };
+    }
+
+    if (isInviteExpired(sharedInvite)) {
+      throw new ApiError(410, "Interview invite has expired.", "INVITE_EXPIRED");
+    }
+
+    if (input.action === "advance-to-details") {
+      return db.transaction(async (tx) => createSharedInviteSession(tx, sharedInvite));
+    }
+
+    throw new ApiError(409, "Interview session is not active.", "INTERVIEW_SESSION_INACTIVE");
+  }
+
+  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
+
+  if (!legacyInviteBundle) {
     throw new ApiError(404, "Interview invite is not available.");
   }
 
-  const { invite, session } = inviteBundle;
-
-  if (invite.revokedAt !== null || new Date(invite.expiresAt).getTime() <= Date.now()) {
+  if (isInviteExpired(legacyInviteBundle.invite)) {
     throw new ApiError(410, "Interview invite has expired.");
   }
 
-  await db.transaction(async (tx) => {
-    await lockInterviewSession(tx, session.id);
-
-    const lockedSession = await findSessionById(tx, session.id);
-    const lockedProfile = await findParticipantProfileBySessionId(tx, session.id);
-
-    if (!lockedSession || !lockedProfile) {
-      throw new ApiError(500, "Interview session state is missing.");
-    }
-
-    const updatedAt = nowIso();
-
-    switch (input.action) {
-      case "advance-to-details":
-        if (lockedSession.sessionStatus === "welcome") {
-          await updateInterviewSessionState(tx, session.id, {
-            sessionStatus: "details",
-            updatedAt,
-          });
-        }
-        break;
-      case "submit-details": {
-        if (!input.consentAccepted) {
-          throw new ApiError(400, "Consent is required before continuing.");
-        }
-
-        await updateParticipantProfileBySessionId(tx, session.id, {
-          responses: input.participantResponses ?? {},
-          consentAccepted: true,
-          consentedAt: lockedProfile.consentedAt ?? updatedAt,
-        });
-
-        if (
-          lockedSession.sessionStatus === "welcome" ||
-          lockedSession.sessionStatus === "details" ||
-          lockedSession.sessionStatus === "preparing"
-        ) {
-          await updateInterviewSessionState(tx, session.id, {
-            sessionStatus: "preparing",
-            updatedAt,
-          });
-        }
-        break;
-      }
-      case "start-room": {
-        const approvedPlan = await findCurrentApprovedPlan(tx, invite.studyId);
-
-        if (!approvedPlan) {
-          throw new ApiError(409, "Approved plan not found for this interview.");
-        }
-
-        if (
-          lockedSession.sessionStatus === "welcome" ||
-          lockedSession.sessionStatus === "details" ||
-          lockedSession.sessionStatus === "preparing"
-        ) {
-          await updateInterviewSessionState(tx, session.id, {
-            sessionStatus: "room",
-            updatedAt,
-          });
-        }
-
-        if (lockedSession.sessionStatus !== "complete") {
-          const existingTurn = await hasTranscriptTurns(tx, session.id);
-
-          if (!existingTurn) {
-            await insertTranscriptTurn(tx, {
-              id: createPrefixedId("turn"),
-              sessionId: session.id,
-              role: "assistant",
-              text: approvedPlan.openingQuestion,
-              timestampLabel: toDisplayTimestamp(updatedAt),
-              createdAt: updatedAt,
-              sortOrder: 0,
-            });
-          }
-        }
-        break;
-      }
-      case "complete":
-        if (lockedSession.sessionStatus !== "complete") {
-          await updateInterviewSessionState(tx, session.id, {
-            sessionStatus: "complete",
-            updatedAt,
-            completedAt: lockedSession.completedAt ?? updatedAt,
-          });
-
-          const currentStudy = await findStudyById(tx, invite.studyId);
-
-          if (
-            currentStudy &&
-            currentStudy.status !== "completed" &&
-            currentStudy.status !== "archived"
-          ) {
-            await enqueueSessionDebriefJob(tx, invite.studyId, session.id, updatedAt);
-          }
-        }
-        break;
-      default:
-        throw new ApiError(400, "Unsupported session action.");
-    }
-
-    await touchStudy(tx, invite.studyId, updatedAt);
-    await refreshStudyStatus(tx, invite.studyId, updatedAt);
-    await refreshStudyAggregate(tx, invite.studyId);
-  });
-
-  const refreshedSession = await findSessionById(db, session.id);
-  const refreshedProfile = await findParticipantProfileBySessionId(db, session.id);
-
-  if (!refreshedSession || !refreshedProfile) {
-    throw new ApiError(500, "Failed to reload interview session.");
-  }
+  const scope: SessionScope = {
+    invite: {
+      inviteCode: legacyInviteBundle.invite.inviteCode,
+      studyId: legacyInviteBundle.invite.studyId,
+    },
+    kind: "legacy",
+    sessionId: legacyInviteBundle.session.id,
+  };
 
   return {
-    ok: true,
-    participantResponses: refreshedProfile.responses ?? {},
-    sessionStatus: refreshedSession.sessionStatus,
+    response: await db.transaction(async (tx) => performSessionAction(tx, scope, input)),
   };
 }

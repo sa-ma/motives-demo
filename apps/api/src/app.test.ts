@@ -11,6 +11,7 @@ import { buildApp } from "./app.js";
 const testDatabaseUrl =
   process.env.DATABASE_URL_TEST ??
   "postgres://postgres:postgres@localhost:5432/motives_test";
+const INTERVIEW_SESSION_TOKEN_HEADER = "x-interview-session-token";
 
 function parseJson<T>(body: string) {
   return JSON.parse(body) as T;
@@ -351,6 +352,62 @@ async function ensureDraftPlan(
   return parseJson<{ topics: string[] }>(planResponse.body);
 }
 
+function createPublicInterviewClient(
+  app: Awaited<ReturnType<typeof createTestApp>>,
+  inviteCode: string,
+) {
+  let sessionToken: string | undefined;
+
+  function getHeaders() {
+    return sessionToken
+      ? {
+          [INTERVIEW_SESSION_TOKEN_HEADER]: sessionToken,
+        }
+      : {};
+  }
+
+  function updateSessionToken(response: {
+    headers: Record<string, number | string | string[] | undefined>;
+  }) {
+    const nextToken = response.headers[INTERVIEW_SESSION_TOKEN_HEADER];
+
+    if (typeof nextToken === "string" && nextToken.length > 0) {
+      sessionToken = nextToken;
+    }
+  }
+
+  return {
+    async action(payload: Record<string, unknown>) {
+      const response = await app.inject({
+        headers: getHeaders(),
+        method: "POST",
+        payload,
+        url: `/v1/public/interviews/${inviteCode}/actions`,
+      });
+      updateSessionToken(response);
+      return response;
+    },
+    async chat(payload: Record<string, unknown>) {
+      return app.inject({
+        headers: getHeaders(),
+        method: "POST",
+        payload,
+        url: `/v1/public/interviews/${inviteCode}/chat`,
+      });
+    },
+    async getRoute() {
+      return app.inject({
+        headers: getHeaders(),
+        method: "GET",
+        url: `/v1/public/interviews/${inviteCode}`,
+      });
+    },
+    get sessionToken() {
+      return sessionToken;
+    },
+  };
+}
+
 async function createReadyInterview(app: Awaited<ReturnType<typeof createTestApp>>) {
   const createStudyResponse = await app.inject({
     method: "POST",
@@ -377,36 +434,93 @@ async function createReadyInterview(app: Awaited<ReturnType<typeof createTestApp
     payload: {},
     url: `/v1/studies/${createdStudy.studyId}/invites`,
   });
-  const invite = parseJson<{ inviteCode: string; sessionId: string }>(createInviteResponse.body);
+  const invite = parseJson<{ inviteCode: string }>(createInviteResponse.body);
+  const client = createPublicInterviewClient(app, invite.inviteCode);
 
-  await app.inject({
-    method: "POST",
-    payload: {
-      action: "advance-to-details",
-    },
-    url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+  const advanceResponse = await client.action({
+    action: "advance-to-details",
   });
-  await app.inject({
-    method: "POST",
-    payload: {
-      action: "submit-details",
-      consentAccepted: true,
-      participantResponses: {
-        preferredName: "Alex",
-      },
+  assert.equal(advanceResponse.statusCode, 200);
+  assert.ok(client.sessionToken);
+
+  const submitDetailsResponse = await client.action({
+    action: "submit-details",
+    consentAccepted: true,
+    participantResponses: {
+      preferredName: "Alex",
     },
-    url: `/v1/public/interviews/${invite.inviteCode}/actions`,
   });
-  await app.inject({
-    method: "POST",
-    payload: {
-      action: "start-room",
-    },
-    url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+  assert.equal(submitDetailsResponse.statusCode, 200);
+
+  const startRoomResponse = await client.action({
+    action: "start-room",
   });
+  assert.equal(startRoomResponse.statusCode, 200);
+
+  const sessionRow = await app.pgPool.query<{ id: string }>(
+    `
+      select id
+      from interview_session
+      where study_id = $1
+      order by created_at desc
+      limit 1
+    `,
+    [createdStudy.studyId],
+  );
 
   return {
-    ...invite,
+    client,
+    inviteCode: invite.inviteCode,
+    sessionId: sessionRow.rows[0]?.id ?? "",
+    studyId: createdStudy.studyId,
+  };
+}
+
+async function createInvitableStudy(
+  app: Awaited<ReturnType<typeof createTestApp>>,
+  options: {
+    audience?: string;
+    context?: string;
+    objective?: string;
+    targetParticipants?: number;
+    title?: string;
+    topics?: string[];
+  } = {},
+) {
+  const createStudyResponse = await app.inject({
+    method: "POST",
+    payload: {
+      audience: options.audience ?? "Budgeting app users",
+      context: options.context ?? "Mobile budgeting apps",
+      targetParticipants: options.targetParticipants ?? 10,
+      objective: options.objective ?? "Understand onboarding retention.",
+      title: options.title ?? "Invitable study",
+      topics: options.topics ?? ["Onboarding", "Trust", "Retention"],
+    },
+    url: "/v1/studies",
+  });
+  const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
+
+  await ensureDraftPlan(app, createdStudy.studyId);
+  const approveResponse = await app.inject({
+    method: "POST",
+    payload: {},
+    url: `/v1/studies/${createdStudy.studyId}/plan/approve`,
+  });
+  assert.equal(approveResponse.statusCode, 200);
+
+  const createInviteResponse = await app.inject({
+    method: "POST",
+    payload: {},
+    url: `/v1/studies/${createdStudy.studyId}/invites`,
+  });
+  assert.equal(createInviteResponse.statusCode, 200);
+
+  const invite = parseJson<{ inviteCode: string }>(createInviteResponse.body);
+
+  return {
+    client: createPublicInterviewClient(app, invite.inviteCode),
+    inviteCode: invite.inviteCode,
     studyId: createdStudy.studyId,
   };
 }
@@ -696,13 +810,10 @@ test("archiving a study hides it from the default list and cancels queued analys
 
   try {
     const interview = await createReadyInterview(app);
+    const { client } = interview;
 
-    const completeResponse = await app.inject({
-      method: "POST",
-      payload: {
-        action: "complete",
-      },
-      url: `/v1/public/interviews/${interview.inviteCode}/actions`,
+    const completeResponse = await client.action({
+      action: "complete",
     });
 
     assert.equal(completeResponse.statusCode, 200);
@@ -942,6 +1053,7 @@ test("study, plan, invite, and public session flow persists state", async () => 
 
     assert.equal(createInviteResponse.statusCode, 200);
     const invite = parseJson<{ inviteCode: string }>(createInviteResponse.body);
+    const client = createPublicInterviewClient(app, invite.inviteCode);
 
     const studiesResponse = await app.inject({
       method: "GET",
@@ -949,27 +1061,22 @@ test("study, plan, invite, and public session flow persists state", async () => 
     });
 
     assert.equal(studiesResponse.statusCode, 200);
-    const studies = parseJson<Array<{ id: string; latestInviteUrl?: string }>>(
+    const studies = parseJson<Array<{ activeInviteUrl?: string; id: string }>>(
       studiesResponse.body,
     );
     assert.equal(
-      studies.find((study) => study.id === createdStudy.studyId)?.latestInviteUrl,
+      studies.find((study) => study.id === createdStudy.studyId)?.activeInviteUrl,
       `http://localhost:3000/interviews/${invite.inviteCode}`,
     );
 
-    const readyRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const readyRouteResponse = await client.getRoute();
 
     assert.equal(readyRouteResponse.statusCode, 200);
     const readyRoute = parseJson<{
       invite: { participantFields: Array<{ id: string; label: string }> };
       kind: string;
-      session: { sessionStatus: string };
     }>(readyRouteResponse.body);
-    assert.equal(readyRoute.kind, "ready");
-    assert.equal(readyRoute.session.sessionStatus, "welcome");
+    assert.equal(readyRoute.kind, "invite-ready");
     assert.equal(
       readyRoute.invite.participantFields.some(
         (field) =>
@@ -985,26 +1092,18 @@ test("study, plan, invite, and public session flow persists state", async () => 
 
     assert.equal(invalidRouteResponse.statusCode, 404);
 
-    const advanceToDetailsResponse = await app.inject({
-      method: "POST",
-      payload: {
-        action: "advance-to-details",
-      },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+    const advanceToDetailsResponse = await client.action({
+      action: "advance-to-details",
     });
 
     assert.equal(advanceToDetailsResponse.statusCode, 200);
 
-    const submitDetailsResponse = await app.inject({
-      method: "POST",
-      payload: {
-        action: "submit-details",
-        consentAccepted: true,
-        participantResponses: {
-          preferredName: "Alex",
-        },
+    const submitDetailsResponse = await client.action({
+      action: "submit-details",
+      consentAccepted: true,
+      participantResponses: {
+        preferredName: "Alex",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
     });
 
     assert.equal(submitDetailsResponse.statusCode, 200);
@@ -1015,20 +1114,21 @@ test("study, plan, invite, and public session flow persists state", async () => 
     assert.equal(submittedDetails.sessionStatus, "preparing");
     assert.equal(submittedDetails.participantResponses.preferredName, "Alex");
 
-    const startRoomResponse = await app.inject({
-      method: "POST",
-      payload: {
-        action: "start-room",
-      },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+    const detailsRouteResponse = await client.getRoute();
+    assert.equal(detailsRouteResponse.statusCode, 200);
+    assert.equal(
+      parseJson<{ kind: string; session: { sessionStatus: string } }>(detailsRouteResponse.body)
+        .session.sessionStatus,
+      "preparing",
+    );
+
+    const startRoomResponse = await client.action({
+      action: "start-room",
     });
 
     assert.equal(startRoomResponse.statusCode, 200);
 
-    const roomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const roomRouteResponse = await client.getRoute();
 
     assert.equal(roomRouteResponse.statusCode, 200);
     const roomRoute = parseJson<{
@@ -1044,31 +1144,24 @@ test("study, plan, invite, and public session flow persists state", async () => 
     assert.equal(roomRoute.session.transcript[0]?.role, "assistant");
     assert.ok(roomRoute.session.transcript[0]?.text.length > 0);
 
-    const chatResponse = await app.inject({
-      method: "POST",
-      payload: {
-        event: "answer",
-        id: invite.inviteCode,
-        message: {
-          id: "msg_1",
-          parts: [
-            {
-              text: "I dropped off because onboarding asked for too much data.",
-              type: "text",
-            },
-          ],
-          role: "user",
-        },
+    const chatResponse = await client.chat({
+      event: "answer",
+      id: invite.inviteCode,
+      message: {
+        id: "msg_1",
+        parts: [
+          {
+            text: "I dropped off because onboarding asked for too much data.",
+            type: "text",
+          },
+        ],
+        role: "user",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
     });
 
     assert.equal(chatResponse.statusCode, 200);
 
-    const refreshedRoomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const refreshedRoomRouteResponse = await client.getRoute();
 
     assert.equal(refreshedRoomRouteResponse.statusCode, 200);
     const refreshedRoomRoute = parseJson<{
@@ -1078,7 +1171,7 @@ test("study, plan, invite, and public session flow persists state", async () => 
           coveredTopicLabels: string[];
         };
         transcript: Array<{ role: string; text: string }>;
-      };
+      },
     }>(refreshedRoomRouteResponse.body);
     assert.equal(refreshedRoomRoute.session.transcript.length, 3);
     assert.equal(refreshedRoomRoute.session.transcript[1]?.role, "user");
@@ -1088,20 +1181,13 @@ test("study, plan, invite, and public session flow persists state", async () => 
     ]);
     assert.equal(refreshedRoomRoute.session.progressState.activeTopicLabel, "Trust erosion");
 
-    const completeResponse = await app.inject({
-      method: "POST",
-      payload: {
-        action: "complete",
-      },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+    const completeResponse = await client.action({
+      action: "complete",
     });
 
     assert.equal(completeResponse.statusCode, 200);
 
-    const completeRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const completeRouteResponse = await client.getRoute();
 
     assert.equal(completeRouteResponse.statusCode, 200);
     const completeRoute = parseJson<{ session: { sessionStatus: string } }>(
@@ -1144,16 +1230,21 @@ test("study, plan, invite, and public session flow persists state", async () => 
     assert.equal(analyzedStudyDetail.sessions[0]?.actionLabel, "View Debrief");
     assert.equal(analyzedStudyDetail.sessions[0]?.debriefStatus, "ready");
 
-    await app.pgPool.query("UPDATE interview_invite SET expires_at = $1 WHERE invite_code = $2", [
+    await app.pgPool.query("UPDATE study_invite SET expires_at = $1 WHERE invite_code = $2", [
       new Date(Date.now() - 60_000).toISOString(),
       invite.inviteCode,
     ]);
 
-    const expiredRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const continuedRouteResponse = await client.getRoute();
+    assert.equal(continuedRouteResponse.statusCode, 200);
+    assert.equal(
+      parseJson<{ kind: string; session: { sessionStatus: string } }>(continuedRouteResponse.body)
+        .session.sessionStatus,
+      "complete",
+    );
 
+    const freshClient = createPublicInterviewClient(app, invite.inviteCode);
+    const expiredRouteResponse = await freshClient.getRoute();
     assert.equal(expiredRouteResponse.statusCode, 410);
   } finally {
     await app.close();
@@ -1190,50 +1281,32 @@ test("concurrent room starts stay idempotent", async () => {
       url: `/v1/studies/${createdStudy.studyId}/invites`,
     });
     const invite = parseJson<{ inviteCode: string }>(createInviteResponse.body);
+    const client = createPublicInterviewClient(app, invite.inviteCode);
 
-    await app.inject({
-      method: "POST",
-      payload: {
-        action: "advance-to-details",
-      },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+    await client.action({
+      action: "advance-to-details",
     });
-    await app.inject({
-      method: "POST",
-      payload: {
-        action: "submit-details",
-        consentAccepted: true,
-        participantResponses: {
-          preferredName: "Alex",
-        },
+    await client.action({
+      action: "submit-details",
+      consentAccepted: true,
+      participantResponses: {
+        preferredName: "Alex",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
     });
 
     const [firstStart, secondStart] = await Promise.all([
-      app.inject({
-        method: "POST",
-        payload: {
-          action: "start-room",
-        },
-        url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+      client.action({
+        action: "start-room",
       }),
-      app.inject({
-        method: "POST",
-        payload: {
-          action: "start-room",
-        },
-        url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+      client.action({
+        action: "start-room",
       }),
     ]);
 
     assert.equal(firstStart.statusCode, 200);
     assert.equal(secondStart.statusCode, 200);
 
-    const roomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const roomRouteResponse = await client.getRoute();
     const roomRoute = parseJson<{
       session: {
         transcript: Array<{ role: string; text: string }>;
@@ -1247,17 +1320,374 @@ test("concurrent room starts stay idempotent", async () => {
   }
 });
 
-test("completed interviews with no participant answers fail debrief analysis", async () => {
+test("concurrent invite creation returns the same study invite", async () => {
+  const app = await createTestApp();
+
+  try {
+    const createStudyResponse = await app.inject({
+      method: "POST",
+      payload: {
+        audience: "Budgeting app users",
+        context: "Mobile budgeting apps",
+        targetParticipants: 10,
+        objective: "Understand onboarding retention.",
+        title: "Concurrent study invite creation",
+        topics: ["Onboarding", "Trust", "Retention"],
+      },
+      url: "/v1/studies",
+    });
+    const createdStudy = parseJson<{ studyId: string }>(createStudyResponse.body);
+
+    await ensureDraftPlan(app, createdStudy.studyId);
+    await app.inject({
+      method: "POST",
+      payload: {},
+      url: `/v1/studies/${createdStudy.studyId}/plan/approve`,
+    });
+
+    const [firstResponse, secondResponse] = await Promise.all([
+      app.inject({
+        method: "POST",
+        payload: {},
+        url: `/v1/studies/${createdStudy.studyId}/invites`,
+      }),
+      app.inject({
+        method: "POST",
+        payload: {},
+        url: `/v1/studies/${createdStudy.studyId}/invites`,
+      }),
+    ]);
+
+    assert.equal(firstResponse.statusCode, 200);
+    assert.equal(secondResponse.statusCode, 200);
+
+    const firstInvite = parseJson<{ inviteCode: string }>(firstResponse.body);
+    const secondInvite = parseJson<{ inviteCode: string }>(secondResponse.body);
+
+    assert.equal(firstInvite.inviteCode, secondInvite.inviteCode);
+
+    const inviteRows = await app.pgPool.query<{ invite_code: string }>(
+      "select invite_code from study_invite where study_id = $1",
+      [createdStudy.studyId],
+    );
+    assert.equal(inviteRows.rows.length, 1);
+    assert.equal(inviteRows.rows[0]?.invite_code, firstInvite.inviteCode);
+  } finally {
+    await app.close();
+  }
+});
+
+test("createStudyInvite replaces a naturally expired shared invite", async () => {
+  const app = await createTestApp();
+
+  try {
+    const invite = await createInvitableStudy(app, {
+      title: "Replace expired shared invite",
+    });
+
+    await app.pgPool.query(
+      `
+        update study_invite
+        set expires_at = now() - interval '1 minute'
+        where study_id = $1
+      `,
+      [invite.studyId],
+    );
+
+    const replacementResponse = await app.inject({
+      method: "POST",
+      payload: {},
+      url: `/v1/studies/${invite.studyId}/invites`,
+    });
+    assert.equal(replacementResponse.statusCode, 200);
+
+    const replacementInvite = parseJson<{ inviteCode: string }>(replacementResponse.body);
+    assert.notEqual(replacementInvite.inviteCode, invite.inviteCode);
+
+    const inviteRows = await app.pgPool.query<{
+      invite_code: string;
+      revoked_at: Date | null;
+    }>(
+      `
+        select invite_code, revoked_at
+        from study_invite
+        where study_id = $1
+        order by created_at asc
+      `,
+      [invite.studyId],
+    );
+
+    assert.equal(inviteRows.rows.length, 2);
+    assert.equal(inviteRows.rows[0]?.invite_code, invite.inviteCode);
+    assert.notEqual(inviteRows.rows[0]?.revoked_at, null);
+    assert.equal(inviteRows.rows[1]?.invite_code, replacementInvite.inviteCode);
+    assert.equal(inviteRows.rows[1]?.revoked_at, null);
+  } finally {
+    await app.close();
+  }
+});
+
+test("concurrent first admissions admit only one participant at capacity", async () => {
+  const app = await createTestApp();
+
+  try {
+    const invite = await createInvitableStudy(app, {
+      targetParticipants: 1,
+      title: "Concurrent first admissions",
+    });
+    const firstClient = createPublicInterviewClient(app, invite.inviteCode);
+    const secondClient = createPublicInterviewClient(app, invite.inviteCode);
+
+    const [firstAdmission, secondAdmission] = await Promise.all([
+      firstClient.action({ action: "advance-to-details" }),
+      secondClient.action({ action: "advance-to-details" }),
+    ]);
+
+    const statusCodes = [firstAdmission.statusCode, secondAdmission.statusCode].sort();
+    assert.deepEqual(statusCodes, [200, 409]);
+
+    const sessions = await app.pgPool.query<{ count: string }>(
+      "select count(*) from interview_session where study_id = $1",
+      [invite.studyId],
+    );
+    assert.equal(Number(sessions.rows[0]?.count ?? 0), 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("active sessions block new admissions until capacity is freed", async () => {
+  const app = await createTestApp();
+
+  try {
+    const invite = await createInvitableStudy(app, {
+      targetParticipants: 1,
+      title: "Active capacity gating",
+    });
+
+    const firstAdmission = await invite.client.action({
+      action: "advance-to-details",
+    });
+    assert.equal(firstAdmission.statusCode, 200);
+
+    const secondClient = createPublicInterviewClient(app, invite.inviteCode);
+    const unavailableRoute = await secondClient.getRoute();
+    assert.equal(unavailableRoute.statusCode, 200);
+    const unavailablePayload = parseJson<{ kind: string; reason: string }>(unavailableRoute.body);
+    assert.equal(unavailablePayload.kind, "unavailable");
+    assert.equal(unavailablePayload.reason, "active-cap-reached");
+
+    const rejectedAdmission = await secondClient.action({
+      action: "advance-to-details",
+    });
+    assert.equal(rejectedAdmission.statusCode, 409);
+    assert.equal(
+      parseJson<{ code: string }>(rejectedAdmission.body).code,
+      "ACTIVE_INTERVIEW_CAP_REACHED",
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test("completed interviews block new admissions once the target is reached", async () => {
+  const app = await createTestApp();
+
+  try {
+    const invite = await createInvitableStudy(app, {
+      targetParticipants: 1,
+      title: "Target reached gating",
+    });
+    await invite.client.action({ action: "advance-to-details" });
+    await invite.client.action({
+      action: "submit-details",
+      consentAccepted: true,
+      participantResponses: {
+        preferredName: "Alex",
+      },
+    });
+    await invite.client.action({ action: "start-room" });
+    await invite.client.action({ action: "complete" });
+
+    const secondClient = createPublicInterviewClient(app, invite.inviteCode);
+    const unavailableRoute = await secondClient.getRoute();
+    assert.equal(unavailableRoute.statusCode, 200);
+    const unavailablePayload = parseJson<{ kind: string; reason: string }>(unavailableRoute.body);
+    assert.equal(unavailablePayload.kind, "unavailable");
+    assert.equal(unavailablePayload.reason, "target-reached");
+
+    const rejectedAdmission = await secondClient.action({
+      action: "advance-to-details",
+    });
+    assert.equal(rejectedAdmission.statusCode, 409);
+    assert.equal(
+      parseJson<{ code: string }>(rejectedAdmission.body).code,
+      "TARGET_REACHED",
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test("expired sessions free capacity for a new participant", async () => {
+  const app = await createTestApp();
+
+  try {
+    const invite = await createInvitableStudy(app, {
+      targetParticipants: 1,
+      title: "Expired sessions free capacity",
+    });
+
+    const firstAdmission = await invite.client.action({
+      action: "advance-to-details",
+    });
+    assert.equal(firstAdmission.statusCode, 200);
+
+    await app.pgPool.query(
+      `
+        update interview_session
+        set
+          last_activity_at = now() - interval '61 minutes',
+          updated_at = now() - interval '61 minutes'
+        where study_id = $1
+      `,
+      [invite.studyId],
+    );
+
+    const secondClient = createPublicInterviewClient(app, invite.inviteCode);
+    const reopenedRoute = await secondClient.getRoute();
+    assert.equal(reopenedRoute.statusCode, 200);
+    assert.equal(parseJson<{ kind: string }>(reopenedRoute.body).kind, "invite-ready");
+
+    const secondAdmission = await secondClient.action({
+      action: "advance-to-details",
+    });
+    assert.equal(secondAdmission.statusCode, 200);
+
+    const expiredSessions = await app.pgPool.query<{ count: string }>(
+      "select count(*) from interview_session where study_id = $1 and session_status = 'expired'",
+      [invite.studyId],
+    );
+    assert.equal(Number(expiredSessions.rows[0]?.count ?? 0), 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("admitted participants can continue after the shared invite expires", async () => {
   const app = await createTestApp();
 
   try {
     const interview = await createReadyInterview(app);
 
-    await app.inject({
-      method: "POST",
-      payload: { action: "complete" },
-      url: `/v1/public/interviews/${interview.inviteCode}/actions`,
+    await app.pgPool.query(
+      `
+        update study_invite
+        set expires_at = now() - interval '1 minute'
+        where study_id = $1
+      `,
+      [interview.studyId],
+    );
+
+    const resumedRoute = await interview.client.getRoute();
+    assert.equal(resumedRoute.statusCode, 200);
+    assert.equal(
+      parseJson<{ kind: string; session: { sessionStatus: string } }>(resumedRoute.body).kind,
+      "ready",
+    );
+
+    const chatResponse = await interview.client.chat({
+      event: "answer",
+      id: interview.inviteCode,
+      message: {
+        id: "msg_after_expiry",
+        parts: [{ text: "I kept going even after the link expired.", type: "text" }],
+        role: "user",
+      },
     });
+    assert.equal(chatResponse.statusCode, 200);
+
+    const completeResponse = await interview.client.action({
+      action: "complete",
+    });
+    assert.equal(completeResponse.statusCode, 200);
+
+    const freshClient = createPublicInterviewClient(app, interview.inviteCode);
+    const expiredRoute = await freshClient.getRoute();
+    assert.equal(expiredRoute.statusCode, 410);
+  } finally {
+    await app.close();
+  }
+});
+
+test("expired sessions do not block ending or archiving a study", async () => {
+  const app = await createTestApp();
+
+  try {
+    const endingStudy = await createInvitableStudy(app, {
+      title: "Ending with expired sessions",
+    });
+    const archiveStudy = await createInvitableStudy(app, {
+      title: "Archiving with expired sessions",
+    });
+
+    await endingStudy.client.action({ action: "advance-to-details" });
+    await archiveStudy.client.action({ action: "advance-to-details" });
+
+    await app.pgPool.query(
+      `
+        update interview_session
+        set
+          last_activity_at = now() - interval '61 minutes',
+          updated_at = now() - interval '61 minutes'
+        where study_id in ($1, $2)
+      `,
+      [endingStudy.studyId, archiveStudy.studyId],
+    );
+
+    const endResponse = await app.inject({
+      method: "POST",
+      payload: {},
+      url: `/v1/studies/${endingStudy.studyId}/end`,
+    });
+    assert.equal(endResponse.statusCode, 200);
+
+    const archiveResponse = await app.inject({
+      method: "POST",
+      payload: {},
+      url: `/v1/studies/${archiveStudy.studyId}/archive`,
+    });
+    assert.equal(archiveResponse.statusCode, 200);
+
+    const expiredSessions = await app.pgPool.query<{
+      session_status: string;
+      study_id: string;
+    }>(
+      `
+        select study_id, session_status
+        from interview_session
+        where study_id in ($1, $2)
+        order by study_id asc
+      `,
+      [endingStudy.studyId, archiveStudy.studyId],
+    );
+    assert.deepEqual(
+      expiredSessions.rows.map((row) => row.session_status),
+      ["expired", "expired"],
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test("completed interviews with no participant answers fail debrief analysis", async () => {
+  const app = await createTestApp();
+
+  try {
+    const interview = await createReadyInterview(app);
+    const { client } = interview;
+
+    await client.action({ action: "complete" });
 
     await drainAnalysisJobs(app);
 
@@ -1466,32 +1896,25 @@ test("GET /v1/studies/:studyId/interviews/:sessionId/debrief returns pending the
 
   try {
     const invite = await createReadyInterview(app);
+    const { client } = invite;
 
-    await app.inject({
-      method: "POST",
-      payload: {
-        event: "answer",
-        id: invite.inviteCode,
-        message: {
-          id: "msg_debrief_ready",
-          parts: [
-            {
-              text: "I started using it because I wanted better control over my spending.",
-              type: "text",
-            },
-          ],
-          role: "user",
-        },
+    await client.chat({
+      event: "answer",
+      id: invite.inviteCode,
+      message: {
+        id: "msg_debrief_ready",
+        parts: [
+          {
+            text: "I started using it because I wanted better control over my spending.",
+            type: "text",
+          },
+        ],
+        role: "user",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
     });
 
-    await app.inject({
-      method: "POST",
-      payload: {
-        action: "complete",
-      },
-      url: `/v1/public/interviews/${invite.inviteCode}/actions`,
+    await client.action({
+      action: "complete",
     });
 
     const pendingResponse = await app.inject({
@@ -1582,7 +2005,7 @@ test("chat validates invite state before streaming", async () => {
 
     assert.equal(notRoomChatResponse.statusCode, 409);
 
-    await app.pgPool.query("UPDATE interview_invite SET expires_at = $1 WHERE invite_code = $2", [
+    await app.pgPool.query("UPDATE study_invite SET expires_at = $1 WHERE invite_code = $2", [
       new Date(Date.now() - 60_000).toISOString(),
       invite.inviteCode,
     ]);
@@ -1612,6 +2035,7 @@ test("chat replays persisted assistant turns for duplicate client message ids", 
 
   try {
     const invite = await createReadyInterview(app);
+    const { client } = invite;
     const payload = {
       event: "answer",
       id: invite.inviteCode,
@@ -1622,24 +2046,13 @@ test("chat replays persisted assistant turns for duplicate client message ids", 
       },
     };
 
-    const firstChatResponse = await app.inject({
-      method: "POST",
-      payload,
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
-    });
-    const secondChatResponse = await app.inject({
-      method: "POST",
-      payload,
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
-    });
+    const firstChatResponse = await client.chat(payload);
+    const secondChatResponse = await client.chat(payload);
 
     assert.equal(firstChatResponse.statusCode, 200);
     assert.equal(secondChatResponse.statusCode, 200);
 
-    const roomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const roomRouteResponse = await client.getRoute();
     const roomRoute = parseJson<{
       session: {
         transcript: Array<{ role: string; text: string }>;
@@ -1690,27 +2103,21 @@ test("skip-question does not get analyzed like a participant answer", async () =
 
   try {
     const invite = await createReadyInterview(app);
+    const { client } = invite;
 
-    const chatResponse = await app.inject({
-      method: "POST",
-      payload: {
-        event: "skip-question",
-        id: invite.inviteCode,
-        message: {
-          id: "msg_skip",
-          parts: [{ text: "Let's skip this question.", type: "text" }],
-          role: "user",
-        },
+    const chatResponse = await client.chat({
+      event: "skip-question",
+      id: invite.inviteCode,
+      message: {
+        id: "msg_skip",
+        parts: [{ text: "Let's skip this question.", type: "text" }],
+        role: "user",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
     });
 
     assert.equal(chatResponse.statusCode, 200);
 
-    const roomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const roomRouteResponse = await client.getRoute();
     const roomRoute = parseJson<{
       session: {
         progressState: {
@@ -1789,6 +2196,7 @@ test("chat retry completes without duplicating the persisted user turn", async (
 
   try {
     const invite = await createReadyInterview(app);
+    const { client } = invite;
     const payload = {
       event: "answer",
       id: invite.inviteCode,
@@ -1799,17 +2207,10 @@ test("chat retry completes without duplicating the persisted user turn", async (
       },
     };
 
-    const firstChatResponse = await app.inject({
-      method: "POST",
-      payload,
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
-    });
+    const firstChatResponse = await client.chat(payload);
     assert.equal(firstChatResponse.statusCode, 200);
 
-    const firstRoomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const firstRoomRouteResponse = await client.getRoute();
     const firstRoomRoute = parseJson<{
       session: {
         transcript: Array<{ role: string; text: string }>;
@@ -1819,17 +2220,10 @@ test("chat retry completes without duplicating the persisted user turn", async (
     assert.equal(firstRoomRoute.session.transcript.length, 2);
     assert.equal(firstRoomRoute.session.transcript[1]?.role, "user");
 
-    const secondChatResponse = await app.inject({
-      method: "POST",
-      payload,
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
-    });
+    const secondChatResponse = await client.chat(payload);
     assert.equal(secondChatResponse.statusCode, 200);
 
-    const secondRoomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const secondRoomRouteResponse = await client.getRoute();
     const secondRoomRoute = parseJson<{
       session: {
         transcript: Array<{ role: string; text: string }>;
@@ -1884,32 +2278,26 @@ test("chat falls back to heuristic topic progress when annotation fails", async 
 
   try {
     const invite = await createReadyInterview(app);
+    const { client } = invite;
 
-    const chatResponse = await app.inject({
-      method: "POST",
-      payload: {
-        event: "answer",
-        id: invite.inviteCode,
-        message: {
-          id: "msg_fallback",
-          parts: [
-            {
-              text: "The onboarding felt invasive and I nearly quit right there.",
-              type: "text",
-            },
-          ],
-          role: "user",
-        },
+    const chatResponse = await client.chat({
+      event: "answer",
+      id: invite.inviteCode,
+      message: {
+        id: "msg_fallback",
+        parts: [
+          {
+            text: "The onboarding felt invasive and I nearly quit right there.",
+            type: "text",
+          },
+        ],
+        role: "user",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
     });
 
     assert.equal(chatResponse.statusCode, 200);
 
-    const refreshedRoomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const refreshedRoomRouteResponse = await client.getRoute();
 
     assert.equal(refreshedRoomRouteResponse.statusCode, 200);
     const refreshedRoomRoute = parseJson<{
@@ -1962,32 +2350,26 @@ test("chat uses the canonical fallback progress when prediction and annotation f
 
   try {
     const invite = await createReadyInterview(app);
+    const { client } = invite;
 
-    const chatResponse = await app.inject({
-      method: "POST",
-      payload: {
-        event: "answer",
-        id: invite.inviteCode,
-        message: {
-          id: "msg_prediction_fallback",
-          parts: [
-            {
-              text: "The onboarding felt invasive and I nearly quit right there.",
-              type: "text",
-            },
-          ],
-          role: "user",
-        },
+    const chatResponse = await client.chat({
+      event: "answer",
+      id: invite.inviteCode,
+      message: {
+        id: "msg_prediction_fallback",
+        parts: [
+          {
+            text: "The onboarding felt invasive and I nearly quit right there.",
+            type: "text",
+          },
+        ],
+        role: "user",
       },
-      url: `/v1/public/interviews/${invite.inviteCode}/chat`,
     });
 
     assert.equal(chatResponse.statusCode, 200);
 
-    const refreshedRoomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const refreshedRoomRouteResponse = await client.getRoute();
 
     assert.equal(refreshedRoomRouteResponse.statusCode, 200);
     const refreshedRoomRoute = parseJson<{
@@ -2047,10 +2429,8 @@ test("chat sends a closing message instead of another question when coverage com
 
   try {
     const invite = await createReadyInterview(app);
-    const initialRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const { client } = invite;
+    const initialRouteResponse = await client.getRoute();
     assert.equal(initialRouteResponse.statusCode, 200);
 
     const initialRoute = parseJson<{
@@ -2064,27 +2444,20 @@ test("chat sends a closing message instead of another question when coverage com
     );
 
     for (const [index, text] of userMessages.entries()) {
-      const chatResponse = await app.inject({
-        method: "POST",
-        payload: {
-          event: "answer",
-          id: invite.inviteCode,
-          message: {
-            id: `msg_close_${index + 1}`,
-            parts: [{ text, type: "text" }],
-            role: "user",
-          },
+      const chatResponse = await client.chat({
+        event: "answer",
+        id: invite.inviteCode,
+        message: {
+          id: `msg_close_${index + 1}`,
+          parts: [{ text, type: "text" }],
+          role: "user",
         },
-        url: `/v1/public/interviews/${invite.inviteCode}/chat`,
       });
 
       assert.equal(chatResponse.statusCode, 200);
     }
 
-    const roomRouteResponse = await app.inject({
-      method: "GET",
-      url: `/v1/public/interviews/${invite.inviteCode}`,
-    });
+    const roomRouteResponse = await client.getRoute();
     assert.equal(roomRouteResponse.statusCode, 200);
 
     const roomRoute = parseJson<{

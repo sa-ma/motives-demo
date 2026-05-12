@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { InterviewInviteState } from "@/components/interviews/invite-state";
 import { getInterviewPath } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
+import { getUnavailableCopy } from "@/lib/interviews/unavailable-copy";
 
 export default async function InterviewIndexPage({
   params,
@@ -31,7 +32,19 @@ export default async function InterviewIndexPage({
     );
   }
 
-  redirect(
-    getInterviewPath(routeState.invite.inviteCode, routeState.session.sessionStatus),
-  );
+  if (routeState.kind === "unavailable") {
+    return (
+      <InterviewInviteState
+        variant="unavailable"
+        title="Interview unavailable"
+        description={getUnavailableCopy(routeState.reason)}
+      />
+    );
+  }
+
+  if (routeState.kind === "invite-ready") {
+    redirect(getInterviewPath(routeState.invite.inviteCode, "welcome"));
+  }
+
+  redirect(getInterviewPath(routeState.invite.inviteCode, routeState.session.sessionStatus));
 }

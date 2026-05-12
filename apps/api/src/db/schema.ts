@@ -186,12 +186,36 @@ export const interviewSession = pgTable(
       .$type<InterviewSessionStatus>()
       .notNull(),
     participantNumber: integer("participant_number").notNull(),
+    browserSessionTokenHash: text("browser_session_token_hash").unique(),
     createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+    lastActivityAt: timestamp("last_activity_at", { mode: "string", withTimezone: true }),
     updatedAt: timestamp("updated_at", { mode: "string", withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { mode: "string", withTimezone: true }),
   },
   (table) => ({
     studyCreatedIdx: index("idx_session_study").on(table.studyId, table.createdAt),
+  }),
+);
+
+export const studyInvite = pgTable(
+  "study_invite",
+  {
+    id: text("id").primaryKey(),
+    studyId: text("study_id")
+      .notNull()
+      .references(() => study.id, { onDelete: "cascade" }),
+    inviteCode: text("invite_code").notNull().unique(),
+    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "string", withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "string", withTimezone: true }),
+  },
+  (table) => ({
+    studyActiveCreatedIdx: index("idx_study_invite_study_active_created")
+      .on(table.studyId, table.createdAt)
+      .where(sql`${table.revokedAt} is null`),
+    studyActiveUniqueIdx: uniqueIndex("study_invite_active_unique")
+      .on(table.studyId)
+      .where(sql`${table.revokedAt} is null`),
   }),
 );
 
@@ -366,6 +390,7 @@ export type StudyPlanVersionRow = typeof studyPlanVersion.$inferSelect;
 export type StudyAggregateRow = typeof studyAggregate.$inferSelect;
 export type ParticipantFieldRow = typeof participantField.$inferSelect;
 export type InterviewSessionRow = typeof interviewSession.$inferSelect;
+export type StudyInviteRow = typeof studyInvite.$inferSelect;
 export type InterviewInviteRow = typeof interviewInvite.$inferSelect;
 export type ParticipantProfileRow = typeof participantProfile.$inferSelect;
 export type TranscriptTurnRow = typeof transcriptTurn.$inferSelect;

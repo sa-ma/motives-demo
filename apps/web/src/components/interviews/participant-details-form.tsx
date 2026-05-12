@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { browserApiClient } from "@/lib/api/client";
+import { callInterviewSessionAction } from "@/lib/interviews/session-client";
 import { cn } from "@/lib/utils";
 import type { InterviewInvitePayload } from "@/lib/interviews/types";
 
@@ -76,7 +76,7 @@ export function ParticipantDetailsForm({
 
             startTransition(async () => {
               try {
-                await browserApiClient.publicInterviews.act(invite.inviteCode, {
+                await callInterviewSessionAction(invite.inviteCode, {
                   action: "submit-details",
                   consentAccepted: true,
                   participantResponses: values,

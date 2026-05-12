@@ -391,7 +391,7 @@ export function InterviewPlanPage({
       ]);
     },
   });
-  const launchInterviewMutation = useMutation({
+  const createInviteMutation = useMutation({
     mutationFn: async ({ approveFirst }: { approveFirst: boolean }) => {
       if (approveFirst) {
         await browserApiClient.plans.approve(studyId);
@@ -406,10 +406,9 @@ export function InterviewPlanPage({
       ]);
       try {
         await copyTextToClipboard(invite.inviteUrl);
-        toast.success("Invite created and copied to clipboard.");
+        toast.success("Invite copied to clipboard.");
       } catch {
-        toast.success("Invite created.");
-        toast.message("Copy it from the interview sessions list.");
+        toast.error("We could not copy the invite link.");
       }
       router.push(`/studies/${studyId}`);
     },
@@ -421,7 +420,9 @@ export function InterviewPlanPage({
   const canRegeneratePlan = studyDetailQuery.data?.canRegeneratePlan ?? true;
   const canStartInterview = studyDetailQuery.data?.canStartInterview ?? false;
   const canApproveBeforeStart = !hasApprovedPlan && canApprovePlan;
-  const canLaunchInterview = canStartInterview || canApproveBeforeStart;
+  const canCreateInvite = canStartInterview || canApproveBeforeStart;
+  const activeInviteUrl = studyDetailQuery.data?.activeInviteUrl;
+  const hasActiveInvite = Boolean(activeInviteUrl);
   const studyEnded = studyDetailQuery.data?.status === "completed";
   const initialPlanGenerationPending =
     initialPlanGenerationMutation.isPending ||
@@ -435,7 +436,7 @@ export function InterviewPlanPage({
     "Estimate after plan generation";
   const actionButtonsDisabled =
     approvePlanMutation.isPending ||
-    launchInterviewMutation.isPending ||
+    createInviteMutation.isPending ||
     regenerationPending ||
     generationPending;
 
@@ -639,9 +640,24 @@ export function InterviewPlanPage({
                   <Button
                     type="button"
                     size="lg"
-                    disabled={!canLaunchInterview || actionButtonsDisabled}
+                    disabled={
+                      hasActiveInvite
+                        ? false
+                        : !canCreateInvite || actionButtonsDisabled
+                    }
                     onClick={() => {
-                      launchInterviewMutation.mutate(
+                      if (activeInviteUrl) {
+                        void copyTextToClipboard(activeInviteUrl)
+                          .then(() => {
+                            toast.success("Invite copied to clipboard.");
+                          })
+                          .catch(() => {
+                            toast.error("We could not copy the invite link.");
+                          });
+                        return;
+                      }
+
+                      createInviteMutation.mutate(
                         { approveFirst: canApproveBeforeStart },
                         {
                           onError: (error) => {
@@ -661,8 +677,10 @@ export function InterviewPlanPage({
                     }}
                     className="h-12 w-full rounded-xl px-6 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)] hover:bg-primary/90 sm:flex-[1.55]"
                   >
-                    {launchInterviewMutation.isPending
+                    {createInviteMutation.isPending
                       ? "Creating invite..."
+                      : hasActiveInvite
+                        ? "Copy Invite"
                       : canApproveBeforeStart
                         ? "Approve & Create Invite"
                         : "Create Invite"}

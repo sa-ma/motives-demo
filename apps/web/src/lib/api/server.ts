@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 import { ApiError, createApiClient } from "@motives-ai/contracts/client";
 import type {
   ListStudiesQuery,
@@ -8,6 +10,10 @@ import type {
   StudyPlanGenerationResponse,
   StudySummary,
 } from "@motives-ai/contracts";
+import {
+  getInterviewSessionCookieName,
+  INTERVIEW_SESSION_TOKEN_HEADER,
+} from "@/lib/interviews/session-token";
 
 function getServerApiBaseUrl() {
   return process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -86,18 +92,23 @@ export async function getInitialSessionDebrief(
 export async function getInterviewRouteStateFromApi(
   inviteCode: string,
 ): Promise<PublicInterviewRouteState> {
-  try {
-    return await getServerApiClient().publicInterviews.get(inviteCode);
-  } catch (error) {
-    if (
-      error instanceof ApiError &&
-      typeof error.payload === "object" &&
-      error.payload !== null &&
-      "kind" in error.payload
-    ) {
-      return error.payload as PublicInterviewRouteState;
-    }
+  const sessionToken = (await cookies()).get(getInterviewSessionCookieName(inviteCode))?.value;
+  const response = await fetch(
+    `${getServerApiBaseUrl().replace(/\/$/, "")}/v1/public/interviews/${inviteCode}`,
+    {
+      cache: "no-store",
+      headers: sessionToken
+        ? {
+            [INTERVIEW_SESSION_TOKEN_HEADER]: sessionToken,
+          }
+        : undefined,
+    },
+  );
+  const payload = (await response.json()) as PublicInterviewRouteState;
 
-    throw error;
+  if (!response.ok && payload.kind !== "invalid" && payload.kind !== "expired") {
+    throw new ApiError("Failed to load interview state.", response.status, payload);
   }
+
+  return payload;
 }

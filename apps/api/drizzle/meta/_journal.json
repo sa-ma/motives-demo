@@ -43,6 +43,13 @@
       "when": 1778544000000,
       "tag": "0005_plan_generation_job",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778601600000,
+      "tag": "0006_study_invite_lazy_sessions",
+      "breakpoints": true
     }
   ]
 }

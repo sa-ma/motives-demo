@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { InterviewCardFrame } from "@/components/interviews/participant-shell";
 import { Button } from "@/components/ui/button";
-import { browserApiClient } from "@/lib/api/client";
+import { callInterviewSessionAction } from "@/lib/interviews/session-client";
 import type { InterviewInvitePayload } from "@/lib/interviews/types";
 
 const inviteHighlights = [
@@ -86,7 +86,7 @@ export function WelcomeScreen({ invite }: { invite: InterviewInvitePayload }) {
               setError(null);
               startTransition(async () => {
                 try {
-                  await browserApiClient.publicInterviews.act(invite.inviteCode, {
+                  await callInterviewSessionAction(invite.inviteCode, {
                     action: "advance-to-details",
                   });
                 } catch {

@@ -12,7 +12,7 @@ export function InterviewInviteState({
 }: {
   description: string;
   title: string;
-  variant?: "expired" | "invalid";
+  variant?: "expired" | "invalid" | "unavailable";
 }) {
   const Icon = variant === "expired" ? Clock3 : CircleAlert;
 

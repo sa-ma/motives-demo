@@ -5,13 +5,17 @@ import { InterviewInviteState } from "@/components/interviews/invite-state";
 import { InterviewPublicShell } from "@/components/interviews/participant-shell";
 import { getRedirectPathForStep } from "@/lib/interviews/helpers";
 import { getInterviewRouteState } from "@/lib/interviews/session";
+import { getUnavailableCopy } from "@/lib/interviews/unavailable-copy";
 
 export default async function InterviewCompletePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ inviteCode: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { inviteCode } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const routeState = await getInterviewRouteState(inviteCode);
 
   if (routeState.kind === "invalid") {
@@ -33,6 +37,20 @@ export default async function InterviewCompletePage({
     );
   }
 
+  if (routeState.kind === "unavailable") {
+    return (
+      <InterviewInviteState
+        variant="unavailable"
+        title="Interview unavailable"
+        description={getUnavailableCopy(routeState.reason)}
+      />
+    );
+  }
+
+  if (routeState.kind === "invite-ready") {
+    redirect(`/interviews/${routeState.invite.inviteCode}/welcome`);
+  }
+
   const redirectPath = getRedirectPathForStep(
     routeState.invite.inviteCode,
     routeState.session.sessionStatus,
@@ -45,7 +63,13 @@ export default async function InterviewCompletePage({
 
   return (
     <InterviewPublicShell>
-      <CompleteScreen />
+      <CompleteScreen
+        variant={
+          resolvedSearchParams?.source === "finished"
+            ? "finished"
+            : "already-completed"
+        }
+      />
     </InterviewPublicShell>
   );
 }

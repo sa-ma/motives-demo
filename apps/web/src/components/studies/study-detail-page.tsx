@@ -8,7 +8,6 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
-  Copy,
   Ellipsis,
   ExternalLink,
   Flag,
@@ -365,9 +364,8 @@ function SessionActionsMenu({
 }) {
   const canViewDebrief =
     session.state === "completed" && session.debriefStatus === "ready";
-  const canCopyInvite = Boolean(session.inviteUrl);
 
-  if (!canViewDebrief && !canCopyInvite) {
+  if (!canViewDebrief) {
     return null;
   }
 
@@ -385,21 +383,6 @@ function SessionActionsMenu({
         <Ellipsis className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {canCopyInvite ? (
-          <DropdownMenuItem
-            onClick={() => {
-              void copyTextToClipboard(session.inviteUrl as string)
-                .then(() => {
-                  toast.success("Invite copied to clipboard.");
-                })
-                .catch(() => {
-                  toast.error("We could not copy the invite link.");
-                });
-            }}
-          >
-            Copy Invite
-          </DropdownMenuItem>
-        ) : null}
         {canViewDebrief ? (
           <DropdownMenuItem
             onClick={() => {
@@ -462,6 +445,7 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
     },
   });
   const study = studyQuery.data ?? initialStudy;
+  const hasActiveInvite = Boolean(study.activeInviteUrl);
 
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(250,250,253,0.98))]">
@@ -525,16 +509,26 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
               <Button
                 type="button"
                 size="lg"
-                disabled={!study.canStartInterview || startInterviewMutation.isPending}
+                disabled={(!study.canStartInterview && !hasActiveInvite) || startInterviewMutation.isPending}
                 onClick={() => {
+                  if (study.activeInviteUrl) {
+                    void copyTextToClipboard(study.activeInviteUrl)
+                      .then(() => {
+                        toast.success("Invite copied to clipboard.");
+                      })
+                      .catch(() => {
+                        toast.error("We could not copy the invite link.");
+                      });
+                    return;
+                  }
+
                   startInterviewMutation.mutate(undefined, {
                     onSuccess: async (invite) => {
                       try {
                         await copyTextToClipboard(invite.inviteUrl);
-                        toast.success("Invite created and copied to clipboard.");
+                        toast.success("Invite copied to clipboard.");
                       } catch {
-                        toast.success("Invite created.");
-                        toast.message("Copy it from the interview sessions list.");
+                        toast.error("We could not copy the invite link.");
                       }
                     },
                     onError: (mutationError) => {
@@ -549,7 +543,11 @@ export function StudyDetailPage({ study: initialStudy }: { study: StudyDetailMod
                 }}
                 className="rounded-xl px-5 text-sm font-semibold shadow-[0_24px_48px_-24px_rgba(29,78,216,0.5)]"
               >
-                {startInterviewMutation.isPending ? "Creating invite..." : "Create Invite"}
+                {startInterviewMutation.isPending
+                  ? "Creating invite..."
+                  : hasActiveInvite
+                    ? "Copy Invite"
+                    : "Create Invite"}
                 <Plus className="size-4" />
               </Button>
               {study.canEndStudy ? (
