@@ -1,0 +1,26 @@
+apps/api/src/lib/public-interviews/service.ts
+  s_3b2752d48978e8::t_8fb72faf3a8b4a 106,740-743,773,875
+  s_3b2752d48978e8::t_4cfd626379408b 420
+apps/api/src/db/repositories/invites.ts
+  s_3b2752d48978e8::t_3f9aa4d20af299 6,21
+apps/api/drizzle/0000_calm_wasp.sql
+  s_3b2752d48978e8::t_f18b92a8ab4ccd 1-2,6,8,10-11,13-18,20-32,40,42,44-45,70-81,91,100-101,105,110-119,141-142,145-146,152-155,159-161,163,167-172,176-179,183
+apps/api/src/app.test.ts
+  s_3b2752d48978e8::t_d28933583269cd 7,546
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "c54bdfdff40763269887c7f97bc7a472bb407be3",
+  "prompts": {},
+  "sessions": {
+    "s_3b2752d48978e8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1e6a-1de8-7220-9ac6-a408fd23e3b3",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
