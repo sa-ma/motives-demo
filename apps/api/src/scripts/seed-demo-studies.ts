@@ -7,6 +7,7 @@ import {
   interviewSession,
   participantField,
   participantProfile,
+  sessionAnnotation,
   study,
   studyInvite,
   studyAggregate,
@@ -44,6 +45,9 @@ async function main() {
         }
         if (demoStudy.transcriptInserts.length > 0) {
           await tx.insert(transcriptTurn).values(demoStudy.transcriptInserts);
+        }
+        if (demoStudy.sessionAnnotationInserts.length > 0) {
+          await tx.insert(sessionAnnotation).values(demoStudy.sessionAnnotationInserts);
         }
         if (demoStudy.debriefInserts.length > 0) {
           await tx.insert(debriefReport).values(demoStudy.debriefInserts);

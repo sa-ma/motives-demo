@@ -8,6 +8,13 @@
       "when": 1778630059546,
       "tag": "0000_calm_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778634428035,
+      "tag": "0001_natural_slapstick",
+      "breakpoints": true
     }
   ]
 }

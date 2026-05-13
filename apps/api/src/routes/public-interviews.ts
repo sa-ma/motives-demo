@@ -25,9 +25,10 @@ import {
 } from "../lib/public-interviews/service.js";
 import { ApiError } from "../lib/errors.js";
 import {
-  advanceInterviewProgressStateAfterSkip,
-  buildFallbackInterviewProgressState,
-} from "../lib/interview-progress.js";
+  advanceCoverageStateAfterSkip,
+  deriveProgressStateFromCoverageState,
+  markCoverageStatePendingReview,
+} from "../lib/interview-coverage.js";
 import { commonErrorResponses } from "../schemas/http.js";
 import type { AssistantTurnResult } from "../ai/service.js";
 
@@ -56,17 +57,8 @@ function getMessageText(
     .join("");
 }
 
-function isProgressComplete(
-  topicLabels: string[],
-  progressState: {
-    activeTopicLabel: string | null;
-    coveredTopicLabels: string[];
-  },
-) {
-  return (
-    progressState.activeTopicLabel === null &&
-    progressState.coveredTopicLabels.length >= topicLabels.length
-  );
+function isCoverageComplete(coverageState: { interviewComplete: boolean }) {
+  return coverageState.interviewComplete;
 }
 
 function buildClosingMessage() {
@@ -164,25 +156,28 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
           }
 
           const assistantTurnId = createTurnId();
-          let predictedProgressState = prepared.progressState;
+          let evaluation;
 
           if (input.event === "skip-question") {
-            predictedProgressState = advanceInterviewProgressStateAfterSkip(
-              prepared.topicLabels,
-              prepared.progressState,
-            );
+            const coverageState = advanceCoverageStateAfterSkip(prepared.coverageState);
+            evaluation = {
+              contradictions: [],
+              coverageState,
+              emotionSignal: "low" as const,
+              evidenceQuotes: [],
+              progressState: deriveProgressStateFromCoverageState(coverageState),
+            };
           } else {
             try {
-              predictedProgressState =
-                await app.interviewAiService.predictProgressAfterParticipantTurn({
-                  event: input.event,
-                  participantResponses: prepared.participantResponses,
-                  plan: prepared.plan,
-                  progressState: prepared.progressState,
-                  study: prepared.study,
-                  transcript: prepared.transcript,
-                  userText,
-                });
+              evaluation = await app.interviewAiService.evaluateParticipantTurn({
+                coverageState: prepared.coverageState,
+                event: input.event,
+                participantResponses: prepared.participantResponses,
+                plan: prepared.plan,
+                study: prepared.study,
+                transcript: prepared.transcript,
+                userText,
+              });
             } catch (error) {
               request.log.warn(
                 {
@@ -190,19 +185,22 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
                   inviteCode,
                   sessionId: prepared.sessionId,
                 },
-                "progress prediction failed; falling back to canonical progress state",
+                "coverage evaluation failed; keeping canonical coverage state unchanged",
               );
-              predictedProgressState = buildFallbackInterviewProgressState(
-                prepared.topicLabels,
-                prepared.transcript,
+              const coverageState = markCoverageStatePendingReview(
+                prepared.coverageState,
               );
+              evaluation = {
+                contradictions: [],
+                coverageState,
+                emotionSignal: "low" as const,
+                evidenceQuotes: [],
+                progressState: deriveProgressStateFromCoverageState(coverageState),
+              };
             }
           }
 
-          const shouldCloseInterview = isProgressComplete(
-            prepared.topicLabels,
-            predictedProgressState,
-          );
+          const shouldCloseInterview = isCoverageComplete(evaluation.coverageState);
 
           writer.write({
             id: assistantTurnId,
@@ -236,7 +234,7 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
               event: input.event,
               participantResponses: prepared.participantResponses,
               plan: prepared.plan,
-              progressState: predictedProgressState,
+              progressState: evaluation.progressState,
               study: prepared.study,
               transcript: prepared.transcript,
             });
@@ -267,52 +265,8 @@ const publicInterviewsRoutesPlugin: FastifyPluginAsync = async (app) => {
             id: assistantTurnId,
             type: "text-end",
           });
-
-          let annotation;
-
-          if (input.event === "skip-question") {
-            annotation = {
-              contradictions: [],
-              emotionSignal: "low" as const,
-              evidenceQuotes: [],
-              progressState: predictedProgressState,
-            };
-          } else {
-            try {
-              annotation = await app.interviewAiService.annotateAssistantTurn({
-                assistantText,
-                event: input.event,
-                participantResponses: prepared.participantResponses,
-                plan: prepared.plan,
-                progressState: prepared.progressState,
-                study: prepared.study,
-                transcript: prepared.transcript,
-                userText,
-              });
-            } catch (error) {
-              request.log.warn(
-                {
-                  err: error,
-                  inviteCode,
-                  sessionId: prepared.sessionId,
-                },
-                "assistant turn annotation failed; keeping predicted progress state",
-              );
-              annotation = {
-                contradictions: [],
-                emotionSignal: "low" as const,
-                evidenceQuotes: [],
-                progressState: predictedProgressState,
-              };
-            }
-          }
-
-          if (shouldCloseInterview) {
-            annotation.progressState = predictedProgressState;
-          }
-
           const finalized = await finalizePublicInterviewChatTurn(app.db, prepared, {
-            annotation,
+            annotation: evaluation,
             assistantTurnId,
             finishReason: finished.finishReason,
             model: finished.model,

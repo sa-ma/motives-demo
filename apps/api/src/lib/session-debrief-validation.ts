@@ -3,6 +3,7 @@ import type { StudyPlan } from "@motives-ai/contracts";
 import type { TranscriptTurnRow } from "../db/schema.js";
 import type { SessionDebriefOutput } from "../ai/research-schemas.js";
 import { isSkipQuestionText } from "./interview-progress.js";
+import type { InterviewCoverageState } from "./interview-coverage.js";
 
 export class InvalidGeneratedSessionDebriefError extends Error {
   constructor(message: string) {
@@ -103,6 +104,7 @@ function validateTopThemes(topThemes: SessionDebriefOutput["topThemes"]) {
 }
 
 export function validateGeneratedSessionDebriefOutput(input: {
+  coverageState: InterviewCoverageState;
   output: SessionDebriefOutput;
   plan: StudyPlan;
   transcript: TranscriptTurnRow[];
@@ -126,6 +128,23 @@ export function validateGeneratedSessionDebriefOutput(input: {
 
   validateCoverageRubric(input.output.topicCoverage);
   validateTopThemes(input.output.topThemes);
+
+  const coverageTopicsByLabel = new Map(
+    input.coverageState.topics.map((topic) => [
+      topic.topicLabel.toLowerCase(),
+      topic.status === "covered" ? "covered" : "not-covered",
+    ]),
+  );
+
+  for (const topic of input.output.topicCoverage) {
+    const expectedCoverageOutcome = coverageTopicsByLabel.get(topic.topic.toLowerCase());
+
+    if (expectedCoverageOutcome !== topic.coverageOutcome) {
+      throw new InvalidGeneratedSessionDebriefError(
+        `Topic "${topic.topic}" must preserve the canonical coverage outcome.`,
+      );
+    }
+  }
 
   const participantTurns = getSubstantiveParticipantTurns(input.transcript);
   const normalizedParticipantTurns = participantTurns.map((turn) =>

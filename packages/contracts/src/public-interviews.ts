@@ -84,6 +84,7 @@ export type InterviewMessage = Static<typeof InterviewMessageSchema>;
 export const InterviewProgressStateSchema = Type.Object({
   activeTopicLabel: Type.Union([Type.String(), Type.Null()]),
   completionRatio: Type.Number(),
+  coveragePendingReview: Type.Optional(Type.Boolean()),
   coveredTopicLabels: Type.Array(Type.String()),
   remainingTopicLabels: Type.Array(Type.String()),
 });

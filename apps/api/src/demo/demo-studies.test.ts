@@ -72,12 +72,15 @@ test("demo studies build complete, brand-focused fixtures across lifecycle state
     for (const session of study.sessionArtifacts) {
       assert.equal(session.sessionInsert.sessionStatus, "complete");
       assert.equal(session.profileInsert.consentAccepted, true);
+      assert.ok(session.annotationInsert.coverageState);
+      assert.ok(session.annotationInsert.progressState);
 
       if (!session.debriefOutput || !session.debriefInsert) {
         continue;
       }
 
       validateGeneratedSessionDebriefOutput({
+        coverageState: session.annotationInsert.coverageState,
         output: session.debriefOutput,
         plan: study.planContent,
         transcript: session.transcriptRows,
@@ -86,6 +89,11 @@ test("demo studies build complete, brand-focused fixtures across lifecycle state
         session.debriefInsert.content.coverage.topics.length,
         study.planContent.topics.length,
       );
+      for (const topic of session.debriefInsert.content.coverage.topics) {
+        assert.ok(
+          topic.coverageOutcome === "covered" || topic.coverageOutcome === "not-covered",
+        );
+      }
     }
   }
 

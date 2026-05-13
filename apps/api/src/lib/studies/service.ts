@@ -6,7 +6,6 @@ import type {
   CreateStudyInput,
   CreateStudyResponse,
   EndStudyResponse,
-  InterviewProgressState,
   ListStudiesQuery,
   ParticipantIntakeField,
   SessionDebriefResponse,
@@ -39,7 +38,6 @@ import {
 } from "../../db/repositories/plans.js";
 import {
   listLatestSessionAnnotationsForSessions,
-  listTranscriptForSessions,
 } from "../../db/repositories/public-interviews.js";
 import {
   countSessions,
@@ -62,7 +60,11 @@ import {
 } from "../../db/repositories/studies.js";
 import { enqueueStudyPlanGenerationJob } from "../analysis/queue.js";
 import { ApiError } from "../errors.js";
-import { buildFallbackInterviewProgressState } from "../interview-progress.js";
+import {
+  createInitialCoverageState,
+  deriveProgressStateFromCoverageState,
+  normalizeCoverageState,
+} from "../interview-coverage.js";
 import { debriefResponseFromRow } from "../study-analysis.js";
 import {
   InvalidGeneratedStudyPlanError,
@@ -240,39 +242,13 @@ function buildTopicCoverageFallback(topics: string[], counts: Awaited<ReturnType
   })) satisfies StudyDetail["topicCoverage"];
 }
 
-function normalizeProgressState(
+function deriveProgressStateForStudy(
   topicLabels: string[],
-  progressState: InterviewProgressState,
+  coverageState = createInitialCoverageState(topicLabels),
 ) {
-  const coveredTopicLabels = topicLabels.filter((label) =>
-    progressState.coveredTopicLabels.includes(label),
+  return deriveProgressStateFromCoverageState(
+    normalizeCoverageState(topicLabels, coverageState),
   );
-  const activeTopicLabel =
-    typeof progressState.activeTopicLabel === "string" &&
-    topicLabels.includes(progressState.activeTopicLabel) &&
-    !coveredTopicLabels.includes(progressState.activeTopicLabel)
-      ? progressState.activeTopicLabel
-      : null;
-  const remainingTopicLabels = topicLabels.filter(
-    (label) => !coveredTopicLabels.includes(label) && label !== activeTopicLabel,
-  );
-
-  return {
-    activeTopicLabel,
-    completionRatio: Math.max(0, Math.min(progressState.completionRatio, 1)),
-    coveredTopicLabels,
-    remainingTopicLabels,
-  };
-}
-
-function buildFallbackAnnotationState(
-  topicLabels: string[],
-  transcript: Array<{
-    role: "assistant" | "user";
-    text: string;
-  }>,
-) {
-  return buildFallbackInterviewProgressState(topicLabels, transcript);
 }
 
 function summarizeStudyAnalysis(
@@ -570,29 +546,16 @@ async function buildSessionItems(
     }
   }
 
-  const fallbackSessionIds = sessions
-    .filter((session) => !debriefBySessionId.has(session.id))
-    .map((session) => session.id);
-  const [latestAnnotations, transcriptRows] = await Promise.all([
-    listLatestSessionAnnotationsForSessions(db, fallbackSessionIds),
-    listTranscriptForSessions(db, fallbackSessionIds),
-  ]);
+  const annotationSessionIds = sessions.map((session) => session.id);
+  const latestAnnotations = await listLatestSessionAnnotationsForSessions(
+    db,
+    annotationSessionIds,
+  );
   const latestAnnotationBySessionId = new Map<string, (typeof latestAnnotations)[number]>();
-  const transcriptBySessionId = new Map<string, (typeof transcriptRows)>();
 
   for (const annotation of latestAnnotations) {
     if (!latestAnnotationBySessionId.has(annotation.sessionId)) {
       latestAnnotationBySessionId.set(annotation.sessionId, annotation);
-    }
-  }
-
-  for (const row of transcriptRows) {
-    const transcript = transcriptBySessionId.get(row.sessionId);
-
-    if (transcript) {
-      transcript.push(row);
-    } else {
-      transcriptBySessionId.set(row.sessionId, [row]);
     }
   }
 
@@ -607,21 +570,11 @@ async function buildSessionItems(
       studyId,
     });
     const latestAnnotation = latestAnnotationBySessionId.get(session.id) ?? null;
-    const transcript = transcriptBySessionId.get(session.id) ?? [];
-    const fallbackProgressState =
-      debriefState?.status === "ready"
-        ? null
-        : latestAnnotation
-          ? normalizeProgressState(topicLabels, latestAnnotation.progressState)
-          : buildFallbackAnnotationState(topicLabels, transcript);
-    const coveredTopics =
-      debriefState?.status === "ready"
-        ? debriefState.debrief.coverage.topics.filter((item) => item.status === "covered").length
-        : fallbackProgressState?.coveredTopicLabels.length ?? 0;
-    const knownTotalTopics =
-      debriefState?.status === "ready"
-        ? debriefState.debrief.coverage.topics.length
-        : topicLabels.length;
+    const progressState = latestAnnotation
+      ? deriveProgressStateForStudy(topicLabels, latestAnnotation.coverageState)
+      : deriveProgressStateForStudy(topicLabels);
+    const coveredTopics = progressState.coveredTopicLabels.length;
+    const knownTotalTopics = topicLabels.length;
     const progress =
       knownTotalTopics === 0 ? 0 : Math.round((coveredTopics / knownTotalTopics) * 100);
     const emotionalSignal =

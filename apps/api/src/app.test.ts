@@ -6,6 +6,11 @@ import type { InterviewAiService } from "./ai/service.js";
 import type { ResearchAiService } from "./ai/research-service.js";
 import { resetDatabase, truncateAllTables } from "./db/migrations.js";
 import { processNextAnalysisJob } from "./lib/analysis/worker.js";
+import {
+  createInitialCoverageState,
+  deriveProgressStateFromCoverageState,
+  normalizeCoverageState,
+} from "./lib/interview-coverage.js";
 import { buildApp } from "./app.js";
 
 const testDatabaseUrl =
@@ -27,38 +32,39 @@ async function* streamTokens(text: string) {
   }
 }
 
-function buildProgressState(topicLabels: string[], userTurnCount: number) {
-  const coveredCount = Math.min(userTurnCount, topicLabels.length);
-  const activeTopicLabel =
-    coveredCount >= topicLabels.length ? null : topicLabels[coveredCount] ?? null;
+function buildCoverageState(topicLabels: string[], userTurnCount: number) {
+  const initial = createInitialCoverageState(topicLabels);
+  const topics = initial.topics.map((topic, index) => ({
+    ...topic,
+    status:
+      index < Math.min(userTurnCount, topicLabels.length)
+        ? ("covered" as const)
+        : ("not-started" as const),
+  }));
+  const normalized = normalizeCoverageState(topicLabels, {
+    activeTopicIndex:
+      userTurnCount >= topicLabels.length ? null : Math.min(userTurnCount, topicLabels.length - 1),
+    coveragePendingReview: false,
+    interviewComplete: userTurnCount >= topicLabels.length,
+    topics,
+  });
 
-  return {
-    activeTopicLabel,
-    completionRatio:
-      topicLabels.length === 0 ? 0 : Math.min((coveredCount + 0.25) / topicLabels.length, 1),
-    coveredTopicLabels: topicLabels.slice(0, coveredCount),
-    remainingTopicLabels:
-      activeTopicLabel === null ? [] : topicLabels.slice(coveredCount + 1),
-  };
+  return normalized;
 }
 
 function createFakeInterviewAiService(): InterviewAiService {
   return {
-    async annotateAssistantTurn(input) {
+    async evaluateParticipantTurn(input) {
       const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
+      const coverageState = buildCoverageState(input.plan.topics, userTurnCount);
 
       return {
         contradictions: [],
+        coverageState,
         emotionSignal: "medium",
         evidenceQuotes: [input.userText.slice(0, 120)].filter(Boolean),
-        progressState: buildProgressState(input.plan.topics, userTurnCount),
+        progressState: deriveProgressStateFromCoverageState(coverageState),
       };
-    },
-
-    async predictProgressAfterParticipantTurn(input) {
-      const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
-
-      return buildProgressState(input.plan.topics, userTurnCount);
     },
 
     async startAssistantTurn(input) {
@@ -202,6 +208,7 @@ function createFakeResearchAiService(): ResearchAiService {
             },
           ],
           topicCoverage: input.plan.topics.map((topic, index) => ({
+            coverageOutcome: index === 0 ? "covered" : "not-covered",
             evidenceStrength:
               index === 0 ? "high" : index === 1 ? "medium" : index === 2 ? "low" : "none",
             score: index === 0 ? 4 : index === 1 ? 2 : index === 2 ? 1 : 0,
@@ -2073,12 +2080,8 @@ test("chat replays persisted assistant turns for duplicate client message ids", 
 test("skip-question does not get analyzed like a participant answer", async () => {
   const app = await createTestApp({
     interviewAiService: {
-      async annotateAssistantTurn() {
-        throw new Error("skip events should not call annotation");
-      },
-
-      async predictProgressAfterParticipantTurn() {
-        throw new Error("skip events should not call progress prediction");
+      async evaluateParticipantTurn() {
+        throw new Error("skip events should not call evaluation");
       },
 
       async startAssistantTurn(input) {
@@ -2150,21 +2153,17 @@ test("skip-question does not get analyzed like a participant answer", async () =
 test("chat retry completes without duplicating the persisted user turn", async () => {
   let shouldFail = true;
   const flakyAiService: InterviewAiService = {
-    async annotateAssistantTurn(input) {
+    async evaluateParticipantTurn(input) {
       const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
+      const coverageState = buildCoverageState(input.plan.topics, userTurnCount);
 
       return {
         contradictions: [],
+        coverageState,
         emotionSignal: "medium",
         evidenceQuotes: [],
-        progressState: buildProgressState(input.plan.topics, userTurnCount),
+        progressState: deriveProgressStateFromCoverageState(coverageState),
       };
-    },
-
-    async predictProgressAfterParticipantTurn(input) {
-      const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
-
-      return buildProgressState(input.plan.topics, userTurnCount);
     },
 
     async startAssistantTurn(input) {
@@ -2244,17 +2243,11 @@ test("chat retry completes without duplicating the persisted user turn", async (
   }
 });
 
-test("chat falls back to heuristic topic progress when annotation fails", async () => {
+test("chat keeps canonical topic progress unchanged and marks review pending when evaluation fails", async () => {
   const app = await createTestApp({
     interviewAiService: {
-      async annotateAssistantTurn() {
-        throw new Error("simulated annotation failure");
-      },
-
-      async predictProgressAfterParticipantTurn(input) {
-        const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
-
-        return buildProgressState(input.plan.topics, userTurnCount);
+      async evaluateParticipantTurn() {
+        throw new Error("simulated evaluation failure");
       },
 
       async startAssistantTurn() {
@@ -2304,29 +2297,25 @@ test("chat falls back to heuristic topic progress when annotation fails", async 
       session: {
         progressState: {
           activeTopicLabel: string | null;
+          coveragePendingReview?: boolean;
           coveredTopicLabels: string[];
         };
       };
     }>(refreshedRoomRouteResponse.body);
 
-    assert.deepEqual(refreshedRoomRoute.session.progressState.coveredTopicLabels, [
-      "Onboarding",
-    ]);
-    assert.equal(refreshedRoomRoute.session.progressState.activeTopicLabel, "Trust");
+    assert.deepEqual(refreshedRoomRoute.session.progressState.coveredTopicLabels, []);
+    assert.equal(refreshedRoomRoute.session.progressState.activeTopicLabel, "Onboarding");
+    assert.equal(refreshedRoomRoute.session.progressState.coveragePendingReview, true);
   } finally {
     await app.close();
   }
 });
 
-test("chat uses the canonical fallback progress when prediction and annotation fail", async () => {
+test("chat keeps canonical topic progress unchanged when evaluation fails completely", async () => {
   const app = await createTestApp({
     interviewAiService: {
-      async annotateAssistantTurn() {
-        throw new Error("simulated annotation failure");
-      },
-
-      async predictProgressAfterParticipantTurn() {
-        throw new Error("simulated prediction failure");
+      async evaluateParticipantTurn() {
+        throw new Error("simulated evaluation failure");
       },
 
       async startAssistantTurn() {
@@ -2391,21 +2380,17 @@ test("chat uses the canonical fallback progress when prediction and annotation f
 test("chat sends a closing message instead of another question when coverage completes", async () => {
   const app = await createTestApp({
     interviewAiService: {
-      async annotateAssistantTurn(input) {
+      async evaluateParticipantTurn(input) {
         const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
+        const coverageState = buildCoverageState(input.plan.topics, userTurnCount);
 
         return {
           contradictions: [],
+          coverageState,
           emotionSignal: "medium",
           evidenceQuotes: [input.userText.slice(0, 120)].filter(Boolean),
-          progressState: buildProgressState(input.plan.topics, userTurnCount),
+          progressState: deriveProgressStateFromCoverageState(coverageState),
         };
-      },
-
-      async predictProgressAfterParticipantTurn(input) {
-        const userTurnCount = input.transcript.filter((turn) => turn.role === "user").length;
-
-        return buildProgressState(input.plan.topics, userTurnCount);
       },
 
       async startAssistantTurn() {

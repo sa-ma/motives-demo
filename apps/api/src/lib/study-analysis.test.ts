@@ -60,6 +60,7 @@ test("normalizeSessionDebriefModel rescales legacy fractional top theme scores",
       researchObjective: "Understand drop-off.",
       topics: [
         {
+          coverageOutcome: "covered",
           id: "topic-1",
           topic: "Onboarding",
           status: "covered",

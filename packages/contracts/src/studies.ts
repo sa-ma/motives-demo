@@ -252,6 +252,10 @@ export const SessionDebriefCoverageSchema = Type.Object({
   researchObjective: Type.String(),
   topics: Type.Array(
     Type.Object({
+      coverageOutcome: Type.Union([
+        Type.Literal("covered"),
+        Type.Literal("not-covered"),
+      ]),
       id: Type.String(),
       topic: Type.String(),
       status: StudyTopicCoverageItemSchema.properties.status,

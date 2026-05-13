@@ -49,7 +49,12 @@ import {
   touchStudy,
 } from "../../db/repositories/studies.js";
 import { ApiError } from "../errors.js";
-import { buildFallbackInterviewProgressState } from "../interview-progress.js";
+import type { InterviewCoverageState } from "../interview-coverage.js";
+import {
+  createInitialCoverageState,
+  deriveProgressStateFromCoverageState,
+  normalizeCoverageState,
+} from "../interview-coverage.js";
 import { formatEstimatedInterviewDuration } from "../study-plan-derived.js";
 import { refreshStudyAggregate, refreshStudyStatus } from "../studies/state.js";
 
@@ -80,6 +85,7 @@ type PreparedPublicInterviewChatTurn =
     }
   | {
       inviteCode: string;
+      coverageState: InterviewCoverageState;
       kind: "generate";
       participantResponses: ParticipantResponses;
       plan: StudyPlan;
@@ -153,39 +159,11 @@ function hashBrowserSessionToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function normalizeProgressState(
+function normalizeSessionCoverageState(
   topicLabels: string[],
-  progressState: InterviewProgressState,
-): InterviewProgressState {
-  const coveredTopicLabels = topicLabels.filter((label) =>
-    progressState.coveredTopicLabels.includes(label),
-  );
-  const activeTopicLabel =
-    typeof progressState.activeTopicLabel === "string" &&
-    topicLabels.includes(progressState.activeTopicLabel) &&
-    !coveredTopicLabels.includes(progressState.activeTopicLabel)
-      ? progressState.activeTopicLabel
-      : null;
-  const remainingTopicLabels = topicLabels.filter(
-    (label) => !coveredTopicLabels.includes(label) && label !== activeTopicLabel,
-  );
-
-  return {
-    activeTopicLabel,
-    completionRatio: Math.max(0, Math.min(progressState.completionRatio, 1)),
-    coveredTopicLabels,
-    remainingTopicLabels,
-  };
-}
-
-function buildFallbackAnnotationState(
-  topicLabels: string[],
-  transcript: Array<{
-    role: "assistant" | "user";
-    text: string;
-  }>,
+  coverageState: InterviewCoverageState,
 ) {
-  return buildFallbackInterviewProgressState(topicLabels, transcript);
+  return normalizeCoverageState(topicLabels, coverageState);
 }
 
 function buildAssistantMetadata(
@@ -263,12 +241,16 @@ async function buildReadyRouteState(
     getTranscript(db, session.id),
   ]);
   const participantResponses = profile?.responses ?? {};
+  const coverageState = latestAnnotation
+    ? normalizeSessionCoverageState(
+        invitePayload.topicLabels,
+        latestAnnotation.coverageState,
+      )
+    : createInitialCoverageState(invitePayload.topicLabels);
   const sessionState: InterviewSessionState = {
     inviteCode: invite.inviteCode,
     participantResponses,
-    progressState: latestAnnotation
-      ? normalizeProgressState(invitePayload.topicLabels, latestAnnotation.progressState)
-      : buildFallbackAnnotationState(invitePayload.topicLabels, transcript),
+    progressState: deriveProgressStateFromCoverageState(coverageState),
     sessionStatus: session.sessionStatus,
     transcript,
   };
@@ -481,19 +463,24 @@ async function prepareChatForSession(
   const transcript = await listTranscriptForSession(tx, scope.sessionId);
   const latestAnnotation = await findLatestSessionAnnotation(tx, scope.sessionId);
   const nextTurn = await findNextTranscriptTurn(tx, scope.sessionId, userTurn.sortOrder);
-  const baseProgressState = latestAnnotation
-    ? normalizeProgressState(approvedPlan.topics, latestAnnotation.progressState)
-    : buildFallbackAnnotationState(approvedPlan.topics, transcript);
+  const baseCoverageState = latestAnnotation
+    ? normalizeSessionCoverageState(
+        approvedPlan.topics,
+        latestAnnotation.coverageState,
+      )
+    : createInitialCoverageState(approvedPlan.topics);
+  const baseProgressState = deriveProgressStateFromCoverageState(baseCoverageState);
 
   if (nextTurn?.role === "assistant") {
     const nextAnnotation = await findAnnotationByAssistantTurnId(tx, nextTurn.id);
     const assistantTurn = mapTranscriptTurnToMessage(nextTurn);
-    const progressState = nextAnnotation
-      ? normalizeProgressState(approvedPlan.topics, nextAnnotation.progressState)
-      : buildFallbackAnnotationState(
+    const coverageState = nextAnnotation
+      ? normalizeSessionCoverageState(
           approvedPlan.topics,
-          transcript.map(mapTranscriptTurnToMessage),
-        );
+          nextAnnotation.coverageState,
+        )
+      : baseCoverageState;
+    const progressState = deriveProgressStateFromCoverageState(coverageState);
 
     return {
       assistantMetadata: buildAssistantMetadata(progressState, assistantTurn),
@@ -503,6 +490,7 @@ async function prepareChatForSession(
   }
 
   return {
+    coverageState: baseCoverageState,
     inviteCode: scope.invite.inviteCode,
     kind: "generate",
     participantResponses: profile.responses ?? {},
@@ -779,9 +767,9 @@ export async function finalizePublicInterviewChatTurn(
   input: {
     annotation: {
       contradictions: string[];
+      coverageState: InterviewCoverageState;
       emotionSignal: "low" | "medium" | "high";
       evidenceQuotes: string[];
-      progressState: InterviewProgressState;
     };
     assistantTurnId: string;
     finishReason: string;
@@ -791,10 +779,11 @@ export async function finalizePublicInterviewChatTurn(
   },
 ): Promise<FinalizedPublicInterviewChatTurn> {
   const createdAt = nowIso();
-  const progressState = normalizeProgressState(
+  const coverageState = normalizeSessionCoverageState(
     prepared.topicLabels,
-    input.annotation.progressState,
+    input.annotation.coverageState,
   );
+  const progressState = deriveProgressStateFromCoverageState(coverageState);
   const assistantTurn: InterviewMessage = {
     id: input.assistantTurnId,
     role: "assistant",
@@ -826,6 +815,7 @@ export async function finalizePublicInterviewChatTurn(
       emotionSignal: input.annotation.emotionSignal,
       evidenceQuotes: input.annotation.evidenceQuotes,
       id: createPrefixedId("annotation"),
+      coverageState,
       progressState,
       sessionId: prepared.sessionId,
       userTurnId: prepared.userTurn.id,

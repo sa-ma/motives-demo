@@ -38,6 +38,16 @@ function getMessageText(message: InterviewUIMessage) {
     .join("");
 }
 
+function isInterviewComplete(
+  progressState: InterviewProgressState,
+  topicCount: number,
+) {
+  return (
+    progressState.activeTopicLabel === null &&
+    progressState.coveredTopicLabels.length >= topicCount
+  );
+}
+
 export function InterviewRoom({
   invite,
   initialProgressState,
@@ -78,6 +88,16 @@ export function InterviewRoom({
         };
       },
     }),
+    onFinish({ message }) {
+      const nextProgressState = message.metadata?.progressState;
+
+      if (
+        !nextProgressState ||
+        isInterviewComplete(nextProgressState, invite.topicLabels.length)
+      ) {
+        router.refresh();
+      }
+    },
   });
 
   useEffect(() => {
@@ -93,9 +113,11 @@ export function InterviewRoom({
       .reverse()
       .find((message) => message.metadata?.progressState)?.metadata?.progressState ??
     initialProgressState;
-  const isInterviewCovered =
-    progressState.activeTopicLabel === null &&
-    progressState.coveredTopicLabels.length >= invite.topicLabels.length;
+
+  const isInterviewCovered = isInterviewComplete(
+    progressState,
+    invite.topicLabels.length,
+  );
 
   const submitMessage = async (event: "answer" | "skip-question") => {
     const text =
@@ -207,6 +229,12 @@ export function InterviewRoom({
             {isInterviewCovered ? (
               <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-3 text-[13px] text-emerald-800 sm:px-6">
                 We&apos;ve covered all planned topics. You can finish the interview now.
+              </div>
+            ) : null}
+
+            {progressState.coveragePendingReview ? (
+              <div className="border-b border-amber-100 bg-amber-50 px-5 py-3 text-[13px] text-amber-800 sm:px-6">
+                We&apos;re reviewing the latest answer before updating interview progress.
               </div>
             ) : null}
 

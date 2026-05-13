@@ -26,6 +26,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { InterviewCoverageState } from "../lib/interview-coverage.js";
 
 export const studyStatusEnum = pgEnum("study_status", [
   "planning",
@@ -277,6 +278,7 @@ export const sessionAnnotation = pgTable(
     assistantTurnId: text("assistant_turn_id")
       .notNull()
       .references(() => transcriptTurn.id, { onDelete: "cascade" }),
+    coverageState: jsonb("coverage_state").$type<InterviewCoverageState>().notNull(),
     progressState: jsonb("progress_state").$type<InterviewProgressState>().notNull(),
     emotionSignal: text("emotion_signal").$type<"low" | "medium" | "high">().notNull(),
     evidenceQuotes: jsonb("evidence_quotes").$type<string[]>().notNull(),

@@ -213,6 +213,10 @@ export const DebriefEvidenceItemSchema = Type.Object(
 
 export const DebriefCoverageTopicSchema = Type.Object(
   {
+    coverageOutcome: Type.Union([
+      Type.Literal("covered"),
+      Type.Literal("not-covered"),
+    ]),
     topic: Type.String(),
     status: Type.Union([
       Type.Literal("covered"),

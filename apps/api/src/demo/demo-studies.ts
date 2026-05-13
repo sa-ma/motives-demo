@@ -11,6 +11,7 @@ import {
   interviewSession as interviewSessionTable,
   participantField as participantFieldTable,
   participantProfile as participantProfileTable,
+  sessionAnnotation as sessionAnnotationTable,
   study as studyTable,
   studyInvite as studyInviteTable,
   studyAggregate as studyAggregateTable,
@@ -24,6 +25,11 @@ import {
   buildStudyTopicCoverageFromDebriefs,
 } from "../lib/study-analysis.js";
 import { hydrateStudyPlanDerivedFields } from "../lib/study-plan-derived.js";
+import {
+  createInitialCoverageState,
+  deriveProgressStateFromCoverageState,
+  normalizeCoverageState,
+} from "../lib/interview-coverage.js";
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -50,8 +56,13 @@ type ReasoningTemplate = {
   trigger: string;
 };
 
-type SessionOutputTemplate = Omit<SessionDebriefOutput, "reasoning"> & {
+type SessionOutputTemplate = Omit<SessionDebriefOutput, "reasoning" | "topicCoverage"> & {
   reasoning: ReasoningTemplate[];
+  topicCoverage: Array<
+    Omit<SessionDebriefOutput["topicCoverage"][number], "coverageOutcome"> & {
+      coverageOutcome?: "covered" | "not-covered";
+    }
+  >;
 };
 
 type DemoSessionDefinition = {
@@ -81,6 +92,7 @@ type DemoStudyDefinition = {
 };
 
 export type BuiltDemoSession = {
+  annotationInsert: typeof sessionAnnotationTable.$inferInsert;
   debriefInsert: typeof debriefReportTable.$inferInsert | null;
   debriefOutput: SessionDebriefOutput | null;
   profileInsert: typeof participantProfileTable.$inferInsert;
@@ -97,6 +109,7 @@ export type BuiltDemoStudy = {
   planVersionInserts: Array<typeof studyPlanVersionTable.$inferInsert>;
   profileInserts: Array<typeof participantProfileTable.$inferInsert>;
   sessionArtifacts: BuiltDemoSession[];
+  sessionAnnotationInserts: Array<typeof sessionAnnotationTable.$inferInsert>;
   sessionInserts: Array<typeof interviewSessionTable.$inferInsert>;
   status: StudyStatus;
   studyInviteInsert: typeof studyInviteTable.$inferInsert | null;
@@ -220,6 +233,77 @@ function resolveReasoningTimestamp(
   return transcriptRows[turnIndex]?.timestampLabel ?? transcriptRows.at(-1)?.timestampLabel ?? "Now";
 }
 
+function buildCoverageStateForSession(options: {
+  debriefOutput: SessionDebriefOutput | null;
+  topics: string[];
+  transcriptRows: Array<typeof transcriptTurnTable.$inferSelect>;
+}) {
+  const { debriefOutput, topics, transcriptRows } = options;
+
+  if (debriefOutput) {
+    const activeTopicIndex = debriefOutput.topicCoverage.findIndex(
+      (topic) => topic.coverageOutcome !== "covered",
+    );
+    const coverageState = normalizeCoverageState(topics, {
+      activeTopicIndex: activeTopicIndex >= 0 ? activeTopicIndex : null,
+      coveragePendingReview: false,
+      interviewComplete: debriefOutput.topicCoverage.every(
+        (topic) => topic.coverageOutcome === "covered",
+      ),
+      topics: debriefOutput.topicCoverage.map((topic) => ({
+        status: topic.coverageOutcome === "covered" ? "covered" : "not-started",
+        topicLabel: topic.topic,
+      })),
+    });
+
+    return coverageState;
+  }
+
+  const participantTurnCount = transcriptRows.filter((turn) => turn.role === "user").length;
+  const coveredCount = Math.min(participantTurnCount, topics.length);
+
+  return normalizeCoverageState(topics, {
+    activeTopicIndex: coveredCount >= topics.length ? null : coveredCount,
+    coveragePendingReview: false,
+    interviewComplete: coveredCount >= topics.length,
+    topics: topics.map((topicLabel, index) => ({
+      status: index < coveredCount ? "covered" : "not-started",
+      topicLabel,
+    })),
+  });
+}
+
+function buildSessionAnnotationInsert(options: {
+  coverageState: ReturnType<typeof buildCoverageStateForSession>;
+  sessionId: string;
+  studyId: string;
+  transcriptRows: Array<typeof transcriptTurnTable.$inferSelect>;
+}) {
+  const lastUserTurn = [...options.transcriptRows]
+    .reverse()
+    .find((turn) => turn.role === "user");
+  const lastAssistantTurn = [...options.transcriptRows]
+    .reverse()
+    .find((turn) => turn.role === "assistant");
+
+  if (!lastUserTurn || !lastAssistantTurn) {
+    throw new Error("Demo session annotations require at least one assistant turn and one user turn.");
+  }
+
+  return {
+    assistantTurnId: lastAssistantTurn.id,
+    contradictions: [],
+    coverageState: options.coverageState,
+    createdAt: lastUserTurn.createdAt,
+    emotionSignal: "low" as const,
+    evidenceQuotes: [],
+    id: buildId(options.studyId, options.sessionId, "annotation", "final"),
+    progressState: deriveProgressStateFromCoverageState(options.coverageState),
+    sessionId: options.sessionId,
+    userTurnId: lastUserTurn.id,
+  } satisfies typeof sessionAnnotationTable.$inferInsert;
+}
+
 function buildPlan(studyDefinition: DemoStudyDefinition) {
   return hydrateStudyPlanDerivedFields({
     ...studyDefinition.plan,
@@ -259,7 +343,19 @@ function buildSessionArtifacts(options: {
   const consentedAt = transcriptRows[0]?.createdAt ?? completedAt.toISOString();
 
   if (!session.debrief) {
+    const coverageState = buildCoverageStateForSession({
+      debriefOutput: null,
+      topics: plan.topics,
+      transcriptRows,
+    });
+
     return {
+      annotationInsert: buildSessionAnnotationInsert({
+        coverageState,
+        sessionId,
+        studyId: studyDefinition.id,
+        transcriptRows,
+      }),
       debriefInsert: null,
       debriefOutput: null,
       profileInsert: {
@@ -291,12 +387,28 @@ function buildSessionArtifacts(options: {
       timestamp: resolveReasoningTimestamp(transcriptRows, row),
       trigger: row.trigger,
     })),
+    topicCoverage: session.debrief.topicCoverage.map((topic) => ({
+      ...topic,
+      coverageOutcome:
+        topic.coverageOutcome ?? (topic.status === "covered" ? "covered" : "not-covered"),
+    })),
   };
 
   validateGeneratedSessionDebriefOutput({
+    coverageState: buildCoverageStateForSession({
+      debriefOutput,
+      topics: plan.topics,
+      transcriptRows,
+    }),
     output: debriefOutput,
     plan,
     transcript: transcriptRows,
+  });
+
+  const coverageState = buildCoverageStateForSession({
+    debriefOutput,
+    topics: plan.topics,
+    transcriptRows,
   });
 
   const debriefContent = buildSessionDebriefModel({
@@ -310,6 +422,12 @@ function buildSessionArtifacts(options: {
   const debriefUpdatedAt = addMinutes(completedAt, 10).toISOString();
 
   return {
+    annotationInsert: buildSessionAnnotationInsert({
+      coverageState,
+      sessionId,
+      studyId: studyDefinition.id,
+      transcriptRows,
+    }),
     debriefInsert: {
       content: debriefContent,
       contradictions: debriefOutput.contradictions,
@@ -457,6 +575,7 @@ function buildStudyArtifacts(studyDefinition: DemoStudyDefinition, now: Date): B
     ],
     profileInserts: sessionArtifacts.map((item) => item.profileInsert),
     sessionArtifacts,
+    sessionAnnotationInserts: sessionArtifacts.map((item) => item.annotationInsert),
     sessionInserts: sessionArtifacts.map((item) => item.sessionInsert),
     status: studyDefinition.status,
     studyInviteInsert:

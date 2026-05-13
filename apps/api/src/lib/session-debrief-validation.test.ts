@@ -8,6 +8,7 @@ import {
   InvalidGeneratedSessionDebriefError,
   validateGeneratedSessionDebriefOutput,
 } from "./session-debrief-validation.js";
+import { normalizeCoverageState } from "./interview-coverage.js";
 
 const plan: StudyPlan = {
   studyId: "study",
@@ -55,9 +56,20 @@ const transcript: TranscriptTurnRow[] = [
   },
 ];
 
+const coverageState = normalizeCoverageState(plan.topics, {
+  activeTopicIndex: 1,
+  coveragePendingReview: false,
+  interviewComplete: false,
+  topics: plan.topics.map((topic, index) => ({
+    status: index === 0 ? "covered" : "not-started",
+    topicLabel: topic,
+  })),
+});
+
 test("validateGeneratedSessionDebriefOutput accepts consistent coverage and grounded quotes", () => {
   assert.doesNotThrow(() =>
     validateGeneratedSessionDebriefOutput({
+      coverageState,
       output: {
         contradictions: [],
         emotionSignal: "medium",
@@ -109,11 +121,11 @@ test("validateGeneratedSessionDebriefOutput accepts consistent coverage and grou
           },
         ],
         topicCoverage: [
-          { topic: "Topic A", status: "covered", evidenceStrength: "high", score: 4 },
-          { topic: "Topic B", status: "in-progress", evidenceStrength: "medium", score: 2 },
-          { topic: "Topic C", status: "weak-evidence", evidenceStrength: "low", score: 1 },
-          { topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
-          { topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
+          { coverageOutcome: "covered", topic: "Topic A", status: "covered", evidenceStrength: "high", score: 4 },
+          { coverageOutcome: "not-covered", topic: "Topic B", status: "in-progress", evidenceStrength: "medium", score: 2 },
+          { coverageOutcome: "not-covered", topic: "Topic C", status: "weak-evidence", evidenceStrength: "low", score: 1 },
+          { coverageOutcome: "not-covered", topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
+          { coverageOutcome: "not-covered", topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
         ],
         topThemes: [
           { label: "Topic A", score: 4, strength: "high" },
@@ -131,6 +143,7 @@ test("validateGeneratedSessionDebriefOutput rejects impossible topic coverage co
   assert.throws(
     () =>
       validateGeneratedSessionDebriefOutput({
+        coverageState,
         output: {
           contradictions: [],
           emotionSignal: "low",
@@ -182,11 +195,11 @@ test("validateGeneratedSessionDebriefOutput rejects impossible topic coverage co
             },
           ],
           topicCoverage: [
-            { topic: "Topic A", status: "covered", evidenceStrength: "high", score: 1 },
-            { topic: "Topic B", status: "not-explored", evidenceStrength: "none", score: 0 },
-            { topic: "Topic C", status: "not-explored", evidenceStrength: "none", score: 0 },
-            { topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
-            { topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
+            { coverageOutcome: "covered", topic: "Topic A", status: "covered", evidenceStrength: "high", score: 1 },
+            { coverageOutcome: "not-covered", topic: "Topic B", status: "not-explored", evidenceStrength: "none", score: 0 },
+            { coverageOutcome: "not-covered", topic: "Topic C", status: "not-explored", evidenceStrength: "none", score: 0 },
+            { coverageOutcome: "not-covered", topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
+            { coverageOutcome: "not-covered", topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
           ],
           topThemes: [
             { label: "Topic A", score: 1, strength: "low" },
@@ -201,10 +214,11 @@ test("validateGeneratedSessionDebriefOutput rejects impossible topic coverage co
   );
 });
 
-test("validateGeneratedSessionDebriefOutput rejects top themes that do not match the debrief scale", () => {
+test("validateGeneratedSessionDebriefOutput rejects coverage outcomes that contradict canonical coverage", () => {
   assert.throws(
     () =>
       validateGeneratedSessionDebriefOutput({
+        coverageState,
         output: {
           contradictions: [],
           emotionSignal: "medium",
@@ -259,11 +273,119 @@ test("validateGeneratedSessionDebriefOutput rejects top themes that do not match
             },
           ],
           topicCoverage: [
-            { topic: "Topic A", status: "covered", evidenceStrength: "high", score: 4 },
-            { topic: "Topic B", status: "in-progress", evidenceStrength: "medium", score: 2 },
-            { topic: "Topic C", status: "weak-evidence", evidenceStrength: "low", score: 1 },
-            { topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
-            { topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
+            {
+              coverageOutcome: "not-covered",
+              topic: "Topic A",
+              status: "in-progress",
+              evidenceStrength: "medium",
+              score: 2,
+            },
+            {
+              coverageOutcome: "covered",
+              topic: "Topic B",
+              status: "covered",
+              evidenceStrength: "high",
+              score: 4,
+            },
+            {
+              coverageOutcome: "not-covered",
+              topic: "Topic C",
+              status: "weak-evidence",
+              evidenceStrength: "low",
+              score: 1,
+            },
+            {
+              coverageOutcome: "not-covered",
+              topic: "Topic D",
+              status: "not-explored",
+              evidenceStrength: "none",
+              score: 0,
+            },
+            {
+              coverageOutcome: "not-covered",
+              topic: "Topic E",
+              status: "not-explored",
+              evidenceStrength: "none",
+              score: 0,
+            },
+          ],
+          topThemes: [
+            { label: "Topic A", score: 4, strength: "high" },
+            { label: "Topic B", score: 3, strength: "medium" },
+          ],
+          whyThisMatters: "It identifies the original value driver.",
+        },
+        plan,
+        transcript,
+      }),
+    InvalidGeneratedSessionDebriefError,
+  );
+});
+
+test("validateGeneratedSessionDebriefOutput rejects top themes that do not match the debrief scale", () => {
+  assert.throws(
+    () =>
+      validateGeneratedSessionDebriefOutput({
+        coverageState,
+        output: {
+          contradictions: [],
+          emotionSignal: "medium",
+          evidence: [
+            {
+              followUp: "What else happened?",
+              label: "Topic A",
+              quote: "I needed help controlling my spending.",
+              theme: "Topic A",
+              whyItMatters: "It explains the initial motivation.",
+            },
+            {
+              followUp: "How did that change over time?",
+              label: "Topic B",
+              quote: "I needed help controlling my spending.",
+              theme: "Topic B",
+              whyItMatters: "It anchors the later behavior.",
+            },
+          ],
+          interviewQuality: {
+            coverage: "6/10",
+            depth: "6/10",
+            participantEngagement: "Medium",
+          },
+          keyTakeaway: "The participant adopted the app for spending control.",
+          missedAreas: ["Topic C"],
+          recommendedFollowUp: [
+            "What changed after the first week?",
+            "What made it less useful later?",
+          ],
+          reasoning: [
+            {
+              aiDecision: "Asked about motivation first.",
+              researchPurpose: "Anchor the timeline.",
+              status: "completed",
+              timestamp: "00:00",
+              trigger: "Opening",
+            },
+            {
+              aiDecision: "Noted a coverage gap.",
+              researchPurpose: "Save for later sessions.",
+              status: "planned",
+              timestamp: "00:20",
+              trigger: "Gap",
+            },
+            {
+              aiDecision: "Probed for specifics.",
+              researchPurpose: "Gather evidence.",
+              status: "completed",
+              timestamp: "00:15",
+              trigger: "Participant response",
+            },
+          ],
+          topicCoverage: [
+            { coverageOutcome: "covered", topic: "Topic A", status: "covered", evidenceStrength: "high", score: 4 },
+            { coverageOutcome: "not-covered", topic: "Topic B", status: "in-progress", evidenceStrength: "medium", score: 2 },
+            { coverageOutcome: "not-covered", topic: "Topic C", status: "weak-evidence", evidenceStrength: "low", score: 1 },
+            { coverageOutcome: "not-covered", topic: "Topic D", status: "not-explored", evidenceStrength: "none", score: 0 },
+            { coverageOutcome: "not-covered", topic: "Topic E", status: "not-explored", evidenceStrength: "none", score: 0 },
           ],
           topThemes: [
             { label: "This label is much too long to fit cleanly in the debrief summary card and should fail", score: 1, strength: "high" },

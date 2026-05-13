@@ -74,6 +74,16 @@ const coverageStatusLabels = {
   "pending-analysis": "Pending analysis",
 } as const;
 
+const coverageOutcomeLabels = {
+  covered: "Covered",
+  "not-covered": "Not covered",
+} as const;
+
+const coverageOutcomeClassNames = {
+  covered: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  "not-covered": "border-zinc-200 bg-zinc-50 text-zinc-500",
+} as const;
+
 const evidenceStrengthBars = {
   high: 4,
   medium: 3,
@@ -413,8 +423,9 @@ function CoveragePanel({ debrief }: { debrief: InterviewDebriefModel }) {
             title="Topic Coverage"
           />
           <div className="px-5 pb-5 sm:px-6 sm:pb-6">
-            <div className="hidden sm:grid grid-cols-[minmax(0,1.45fr)_140px_150px] gap-3 border-b border-zinc-200/80 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400">
+            <div className="hidden sm:grid grid-cols-[minmax(0,1.25fr)_120px_140px_150px] gap-3 border-b border-zinc-200/80 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400">
               <span>Topic</span>
+              <span className="text-center">Outcome</span>
               <span className="text-center">Status</span>
               <span>Evidence strength</span>
             </div>
@@ -423,11 +434,22 @@ function CoveragePanel({ debrief }: { debrief: InterviewDebriefModel }) {
               {debrief.coverage.topics.map((topic) => (
                 <div
                   key={topic.id}
-                  className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1.45fr)_140px_150px] sm:items-center"
+                  className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1.25fr)_120px_140px_150px] sm:items-center"
                 >
                   <p className="text-[13px] leading-6 text-zinc-700">
                     {topic.topic}
                   </p>
+                  <div className="sm:text-center">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "rounded-full px-3 py-1 text-[11px] font-semibold",
+                        coverageOutcomeClassNames[topic.coverageOutcome],
+                      )}
+                    >
+                      {coverageOutcomeLabels[topic.coverageOutcome]}
+                    </Badge>
+                  </div>
                   <div className="sm:text-center">
                     <Badge
                       variant="outline"

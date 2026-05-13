@@ -11,16 +11,19 @@ import type {
 import type { StudyRow, TranscriptTurnRow } from "../db/schema.js";
 import { isSkipQuestionText } from "../lib/interview-progress.js";
 import {
-  interviewProgressStateJsonSchema,
-  sessionAnnotationOutputJsonSchema,
-  type SessionAnnotationOutput,
+  interviewCoverageEvaluationOutputJsonSchema,
+  type InterviewCoverageEvaluationOutput,
 } from "./schemas.js";
 import {
-  buildProgressPredictionPrompt,
+  buildCoverageEvaluationPrompt,
   buildInterviewerSystemPrompt,
-  buildTurnAnnotationPrompt,
 } from "./prompts.js";
 import type { ApiConfig } from "../lib/config.js";
+import type { InterviewCoverageState } from "../lib/interview-coverage.js";
+import {
+  deriveProgressStateFromCoverageState,
+  normalizeCoverageState,
+} from "../lib/interview-coverage.js";
 
 type AssistantTurnInput = {
   event?: PublicInterviewChatEvent;
@@ -31,28 +34,19 @@ type AssistantTurnInput = {
   transcript: TranscriptTurnRow[];
 };
 
-type AnnotationInput = {
-  assistantText: string;
+type CoverageEvaluationInput = {
   event?: PublicInterviewChatEvent;
+  coverageState: InterviewCoverageState;
   participantResponses: ParticipantResponses;
   plan: StudyPlan;
-  progressState: InterviewProgressState;
   study: StudyRow;
   transcript: TranscriptTurnRow[];
   userText: string;
 };
 
-type ProgressPredictionInput = {
-  event?: PublicInterviewChatEvent;
-  participantResponses: ParticipantResponses;
-  plan: StudyPlan;
+export type InterviewCoverageEvaluation = InterviewCoverageEvaluationOutput & {
   progressState: InterviewProgressState;
-  study: StudyRow;
-  transcript: TranscriptTurnRow[];
-  userText: string;
 };
-
-export type InterviewTurnAnnotation = SessionAnnotationOutput;
 
 export type AssistantTurnResult = {
   finishReason: string;
@@ -68,8 +62,9 @@ export type AssistantTurnStream = {
 };
 
 export interface InterviewAiService {
-  annotateAssistantTurn(input: AnnotationInput): Promise<InterviewTurnAnnotation>;
-  predictProgressAfterParticipantTurn(input: ProgressPredictionInput): Promise<InterviewProgressState>;
+  evaluateParticipantTurn(
+    input: CoverageEvaluationInput,
+  ): Promise<InterviewCoverageEvaluation>;
   startAssistantTurn(input: AssistantTurnInput): Promise<AssistantTurnStream>;
 }
 
@@ -109,15 +104,15 @@ export function createOpenAiInterviewAiService(
   config: OpenAiInterviewConfig,
 ): InterviewAiService {
   return {
-    async predictProgressAfterParticipantTurn(input) {
+    async evaluateParticipantTurn(input) {
       ensureOpenAiApiKey(config);
       const { annotation, reasoningEffort } = getOpenAiModels(config);
       const result = await generateText({
         model: openai(annotation),
         output: Output.object({
-          schema: interviewProgressStateJsonSchema,
+          schema: interviewCoverageEvaluationOutputJsonSchema,
         }),
-        prompt: buildProgressPredictionPrompt(input),
+        prompt: buildCoverageEvaluationPrompt(input),
         providerOptions: {
           openai: {
             reasoningEffort,
@@ -125,7 +120,19 @@ export function createOpenAiInterviewAiService(
         },
       });
 
-      return result.output;
+      const output = result.output;
+      const coverageState = normalizeCoverageState(
+        input.plan.topics,
+        output.coverageState,
+      );
+
+      return {
+        contradictions: output.contradictions,
+        coverageState,
+        emotionSignal: output.emotionSignal,
+        evidenceQuotes: output.evidenceQuotes.slice(0, 3),
+        progressState: deriveProgressStateFromCoverageState(coverageState),
+      };
     },
 
     async startAssistantTurn(input) {
@@ -160,32 +167,6 @@ export function createOpenAiInterviewAiService(
         },
         model: interviewer,
         textStream: result.textStream,
-      };
-    },
-
-    async annotateAssistantTurn(input) {
-      ensureOpenAiApiKey(config);
-      const { annotation, reasoningEffort } = getOpenAiModels(config);
-      const result = await generateText({
-        model: openai(annotation),
-        output: Output.object({
-          schema: sessionAnnotationOutputJsonSchema,
-        }),
-        prompt: buildTurnAnnotationPrompt(input),
-        providerOptions: {
-          openai: {
-            reasoningEffort,
-          },
-        },
-      });
-
-      const output = result.output;
-
-      return {
-        contradictions: output.contradictions,
-        emotionSignal: output.emotionSignal,
-        evidenceQuotes: output.evidenceQuotes.slice(0, 3),
-        progressState: output.progressState,
       };
     },
   };

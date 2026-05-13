@@ -73,7 +73,9 @@ export function buildStudyTopicCoverageFromDebriefs(
       .flatMap((debrief) => debrief.coverage.topics)
       .filter((item) => item.topic.toLowerCase() === topic.toLowerCase());
 
-    const coveredCount = matchingTopics.filter((item) => item.status === "covered").length;
+    const coveredCount = matchingTopics.filter(
+      (item) => item.coverageOutcome === "covered",
+    ).length;
     const inProgressCount = matchingTopics.filter(
       (item) => item.status === "in-progress",
     ).length;
@@ -174,6 +176,7 @@ export function buildSessionDebriefModel(options: {
     coverage: {
       researchObjective: options.studyObjective,
       topics: options.output.topicCoverage.map((topic, index) => ({
+        coverageOutcome: topic.coverageOutcome,
         id: `${options.sessionId}-${index}`,
         topic: topic.topic,
         status: topic.status,

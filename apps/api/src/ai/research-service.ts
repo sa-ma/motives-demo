@@ -5,6 +5,7 @@ import type { SessionDebrief, StudyPlan } from "@motives-ai/contracts";
 
 import type { SessionAnnotationRow, StudyRow, TranscriptTurnRow } from "../db/schema.js";
 import type { ParticipantResponses } from "@motives-ai/contracts/public-interviews";
+import type { InterviewCoverageState } from "../lib/interview-coverage.js";
 import {
   buildStudyPlanBodyPrompt,
   buildStudyPlanHypothesesPrompt,
@@ -33,6 +34,7 @@ type ProviderResult<T> = {
 export interface ResearchAiService {
   generateSessionDebrief(input: {
     annotations: SessionAnnotationRow[];
+    coverageState: InterviewCoverageState;
     participantLabel: string;
     participantResponses: ParticipantResponses;
     plan: StudyPlan;

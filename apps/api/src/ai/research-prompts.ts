@@ -10,6 +10,7 @@ import type {
 } from "../db/schema.js";
 import { isSkipQuestionText } from "../lib/interview-progress.js";
 import type { SessionDebrief } from "@motives-ai/contracts/studies";
+import type { InterviewCoverageState } from "../lib/interview-coverage.js";
 
 function formatOrderedList(items: string[]) {
   if (items.length === 0) {
@@ -146,6 +147,7 @@ export function buildStudyPlanBodyPrompt(input: {
 
 export function buildSessionDebriefPrompt(input: {
   annotations: SessionAnnotationRow[];
+  coverageState: InterviewCoverageState;
   participantLabel: string;
   participantResponses: ParticipantResponses;
   plan: StudyPlan;
@@ -160,6 +162,7 @@ export function buildSessionDebriefPrompt(input: {
     "Every evidence quote must come directly from a participant response in the transcript.",
     "Reasoning rows should explain how the AI interviewer adapted over the course of the interview.",
     "Topic coverage must use only the approved plan topics.",
+    "Preserve the canonical coverage outcome for every topic exactly as provided.",
     "Top themes must be short research labels, not full sentences.",
     "Use this strict topic coverage rubric:",
     "- covered: the topic was clearly answered with direct evidence; use score 4 or 5 and evidenceStrength high or medium.",
@@ -194,6 +197,16 @@ export function buildSessionDebriefPrompt(input: {
     "",
     "Turn annotations:",
     formatAnnotations(input.annotations),
+    "",
+    "Canonical coverage outcome:",
+    input.coverageState.topics
+      .map(
+        (topic, index) =>
+          `${index + 1}. ${topic.topicLabel}: ${
+            topic.status === "covered" ? "covered" : "not-covered"
+          }`,
+      )
+      .join("\n"),
     "",
     "Full transcript:",
     formatTranscript(input.transcript),

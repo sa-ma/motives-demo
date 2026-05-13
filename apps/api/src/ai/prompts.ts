@@ -7,6 +7,7 @@ import type {
 
 import type { StudyRow, TranscriptTurnRow } from "../db/schema.js";
 import { isSkipQuestionText } from "../lib/interview-progress.js";
+import type { InterviewCoverageState } from "../lib/interview-coverage.js";
 
 const behaviorGuidance: Record<StudyPlan["selectedBehaviorId"], string> = {
   "ask-for-examples":
@@ -59,9 +60,22 @@ function formatOrderedList(items: string[]) {
 function formatProgressState(progressState: InterviewProgressState) {
   return [
     `Active topic: ${progressState.activeTopicLabel ?? "None"}`,
+    `Coverage pending review: ${progressState.coveragePendingReview ? "Yes" : "No"}`,
     `Covered topics: ${progressState.coveredTopicLabels.join(", ") || "None"}`,
     `Remaining topics: ${progressState.remainingTopicLabels.join(", ") || "None"}`,
     `Completion ratio: ${progressState.completionRatio}`,
+  ].join("\n");
+}
+
+function formatCoverageState(coverageState: InterviewCoverageState) {
+  return [
+    `Active topic index: ${coverageState.activeTopicIndex ?? "None"}`,
+    `Coverage pending review: ${coverageState.coveragePendingReview ? "Yes" : "No"}`,
+    `Interview complete: ${coverageState.interviewComplete ? "Yes" : "No"}`,
+    "Topic states:",
+    coverageState.topics
+      .map((topic, index) => `${index + 1}. ${topic.topicLabel}: ${topic.status}`)
+      .join("\n") || "None",
   ].join("\n");
 }
 
@@ -94,10 +108,9 @@ export function buildInterviewerSystemPrompt(input: {
     "Stay warm, observant, and grounded in the participant's language.",
     "If the participant shares something emotionally charged, respond with empathy before probing further.",
     "Prefer concrete follow-up questions and examples over abstract questions.",
-    "Use the ordered topics as your internal agenda. Prefer moving through them in order unless the participant's answer clearly provides evidence for a later topic.",
-    "Use the active topic as your main focus. Once the participant has given a concrete reason, example, or outcome for that topic, move to the next remaining topic instead of asking endless follow-ups.",
-    "Ask at most one targeted follow-up before transitioning, unless the participant's answer is still too vague to capture usable evidence.",
-    "If all plan topics are already covered, do not ask another substantive question. Briefly thank the participant, say you have covered everything you needed, and invite them to end the interview.",
+    "Use the active topic supplied below as your main focus. Do not decide for yourself that another topic should now be active.",
+    "Ask at most one targeted follow-up for the active topic unless the participant's answer is too vague to be useful.",
+    "If the active topic is None, the interview is complete. Do not ask another substantive question. Briefly thank the participant, say you have covered everything you needed, and invite them to end the interview.",
     "Do not mention internal plan mechanics, coverage state, or hypothesis language to the participant.",
     "",
     `Study title: ${input.study.title}`,
@@ -135,30 +148,32 @@ export function buildInterviewerSystemPrompt(input: {
   ].join("\n");
 }
 
-export function buildTurnAnnotationPrompt(input: {
-  assistantText: string;
+export function buildCoverageEvaluationPrompt(input: {
   event?: PublicInterviewChatEvent;
+  coverageState: InterviewCoverageState;
   participantResponses: ParticipantResponses;
   plan: StudyPlan;
-  progressState: InterviewProgressState;
   study: StudyRow;
   transcript: TranscriptTurnRow[];
   userText: string;
 }) {
   return [
-    "Analyze the latest interview exchange and update interview progress.",
+    "Analyze the latest participant answer and update the canonical interview coverage state.",
     "Return only structured data that matches the schema.",
     "Use only the approved plan topics when deciding coverage.",
     "Treat the plan topics as an ordered agenda.",
+    "The canonical coverage state is the source of truth. Update it carefully and conservatively.",
     "Mark a topic as covered only when the participant has provided meaningful evidence on it.",
     "Meaningful evidence usually means a concrete reason, example, behavior, feeling with context, or outcome related to the topic.",
     input.event === "skip-question"
       ? "The latest participant event was a skip, not an answer. Do not treat the skip text as evidence, do not create contradictions from it, and do not mark any topic as covered because of it."
       : "The latest participant event was an answer. Base coverage only on what the participant actually said.",
-    "If the latest participant turn provides meaningful evidence for the current active topic, mark that topic covered and advance the active topic to the next uncovered topic.",
-    "If the latest participant turn is still vague or incomplete for the current active topic, keep that topic active.",
-    "If all topics are covered, set activeTopicLabel to null, remainingTopicLabels to an empty array, and completionRatio to 1.",
-    "If the latest interviewer turn is a closing message because coverage is complete, the progress state should usually reflect a completed interview.",
+    "If the latest participant turn provides meaningful evidence for the current active topic, mark that topic covered.",
+    "If the latest participant turn clearly answers a later topic with concrete evidence, you may mark that later topic covered too.",
+    "If the latest participant turn is vague or incomplete for a topic, do not mark it covered.",
+    "Choose exactly one active topic whenever the interview is not complete.",
+    "If all topics are covered, set interviewComplete to true and activeTopicIndex to null.",
+    "If the interview is not complete, set interviewComplete to false and keep coveragePendingReview false.",
     "Keep evidence quotes short and verbatim. Return at most 3.",
     "Return contradictions only when the participant said something that conflicts with a previous claim.",
     "",
@@ -172,52 +187,8 @@ export function buildTurnAnnotationPrompt(input: {
     "Participant profile:",
     formatParticipantResponses(input.participantResponses),
     "",
-    "Previous progress state:",
-    formatProgressState(input.progressState),
-    "",
-    "Recent transcript:",
-    formatTranscript(input.transcript) || "No prior turns.",
-    "",
-    `Latest participant turn: ${input.userText}`,
-    `Latest interviewer turn: ${input.assistantText}`,
-  ].join("\n");
-}
-
-export function buildProgressPredictionPrompt(input: {
-  event?: PublicInterviewChatEvent;
-  participantResponses: ParticipantResponses;
-  plan: StudyPlan;
-  progressState: InterviewProgressState;
-  study: StudyRow;
-  transcript: TranscriptTurnRow[];
-  userText: string;
-}) {
-  return [
-    "Predict the canonical interview progress state immediately after the participant's latest answer and before the interviewer responds.",
-    "Return only structured data that matches the schema.",
-    "Use only the approved plan topics when deciding coverage.",
-    "Treat the plan topics as an ordered agenda.",
-    "Mark a topic as covered only when the participant has provided meaningful evidence on it.",
-    "Meaningful evidence usually means a concrete reason, example, behavior, feeling with context, or outcome related to the topic.",
-    input.event === "skip-question"
-      ? "The latest participant event was a skip, not an answer. Do not treat the skip text as evidence and do not mark any topic as covered because of it."
-      : "The latest participant event was an answer. Base coverage only on what the participant actually said.",
-    "If the latest participant turn provides meaningful evidence for the current active topic, mark that topic covered and advance the active topic to the next uncovered topic.",
-    "If the latest participant turn is still vague or incomplete for the current active topic, keep that topic active.",
-    "If all topics are covered, set activeTopicLabel to null, remainingTopicLabels to an empty array, and completionRatio to 1.",
-    "",
-    `Study title: ${input.study.title}`,
-    `Study objective: ${input.study.objective}`,
-    "Hypotheses to test:",
-    formatOrderedList(input.plan.hypotheses),
-    `Plan topics: ${input.plan.topics.join(", ")}`,
-    `Must-cover areas: ${input.plan.mustCoverAreas.join(", ") || "None"}`,
-    "",
-    "Participant profile:",
-    formatParticipantResponses(input.participantResponses),
-    "",
-    "Previous progress state:",
-    formatProgressState(input.progressState),
+    "Previous canonical coverage state:",
+    formatCoverageState(input.coverageState),
     "",
     "Recent transcript:",
     formatTranscript(input.transcript) || "No prior turns.",

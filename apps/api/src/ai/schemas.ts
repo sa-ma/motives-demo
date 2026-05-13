@@ -1,14 +1,12 @@
 import { jsonSchema } from "ai";
 import { Type, type Static } from "@sinclair/typebox";
 
-import { InterviewProgressStateSchema } from "@motives-ai/contracts/public-interviews";
+import { InterviewCoverageStateSchema } from "../lib/interview-coverage.js";
 
-export const interviewProgressStateJsonSchema =
-  jsonSchema<Static<typeof InterviewProgressStateSchema>>(InterviewProgressStateSchema);
-
-export const SessionAnnotationOutputSchema = Type.Object(
+export const InterviewCoverageEvaluationOutputSchema = Type.Object(
   {
     contradictions: Type.Array(Type.String()),
+    coverageState: InterviewCoverageStateSchema,
     emotionSignal: Type.Union([
       Type.Literal("low"),
       Type.Literal("medium"),
@@ -17,12 +15,15 @@ export const SessionAnnotationOutputSchema = Type.Object(
     evidenceQuotes: Type.Array(Type.String(), {
       maxItems: 3,
     }),
-    progressState: InterviewProgressStateSchema,
   },
   { additionalProperties: false },
 );
 
-export type SessionAnnotationOutput = Static<typeof SessionAnnotationOutputSchema>;
+export type InterviewCoverageEvaluationOutput = Static<
+  typeof InterviewCoverageEvaluationOutputSchema
+>;
 
-export const sessionAnnotationOutputJsonSchema =
-  jsonSchema<SessionAnnotationOutput>(SessionAnnotationOutputSchema);
+export const interviewCoverageEvaluationOutputJsonSchema =
+  jsonSchema<InterviewCoverageEvaluationOutput>(
+    InterviewCoverageEvaluationOutputSchema,
+  );

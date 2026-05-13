@@ -1,0 +1,1 @@
+ALTER TABLE "session_annotation" ADD COLUMN "coverage_state" jsonb NOT NULL;

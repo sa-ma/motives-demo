@@ -40,6 +40,7 @@ import {
   InvalidGeneratedStudyPlanError,
   validateGeneratedStudyPlanOutput,
 } from "../study-plan-validation.js";
+import { createInitialCoverageState } from "../interview-coverage.js";
 import {
   hasSubstantiveParticipantResponses,
   validateGeneratedSessionDebriefOutput,
@@ -266,6 +267,9 @@ export async function processNextAnalysisJob(
 
       const generated = await researchAiService.generateSessionDebrief({
         annotations,
+        coverageState:
+          annotations.at(-1)?.coverageState ??
+          createInitialCoverageState(plan.topics),
         participantLabel,
         participantResponses: profile.responses ?? {},
         plan,
@@ -273,6 +277,9 @@ export async function processNextAnalysisJob(
         transcript,
       });
       validateGeneratedSessionDebriefOutput({
+        coverageState:
+          annotations.at(-1)?.coverageState ??
+          createInitialCoverageState(plan.topics),
         output: generated.output,
         plan,
         transcript,
