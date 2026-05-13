@@ -1,0 +1,92 @@
+apps/api/src/lib/study-analysis.test.ts
+  s_2e541fa6f03e36::t_de23c817683e47 63
+apps/web/src/components/interviews/interview-debrief-page.tsx
+  s_2e541fa6f03e36::t_a7dcb7e2ed3d58 77-86,426,428,437,444-452
+packages/contracts/src/public-interviews.ts
+  s_2e541fa6f03e36::t_b00086a80d26aa 87
+apps/api/src/ai/prompts.ts
+  s_2e541fa6f03e36::t_3ba9c3cfc167ad 111-113
+  s_2e541fa6f03e36::t_3e2163d1053da4 10,63,70-81,151,153,161,165,171-176,190-191
+apps/api/src/db/schema.ts
+  s_2e541fa6f03e36::t_9cf08f645f3f5d 29,281
+apps/api/src/demo/demo-studies.test.ts
+  s_2e541fa6f03e36::t_7ef6024df74d4e 75-76,83,92-96
+apps/api/src/ai/research-prompts.ts
+  s_2e541fa6f03e36::t_153b1d165c86be 13,150,165,201-209
+apps/api/src/lib/session-debrief-validation.ts
+  s_2e541fa6f03e36::t_8ee8d1460f6707 6,107,132-147
+apps/api/src/demo/demo-studies.ts
+  s_2e541fa6f03e36::t_c981721af0667e 244-246,248
+  s_2e541fa6f03e36::t_5de4ea583c5db6 578
+  s_2e541fa6f03e36::t_b9a081848c8367 346-351,353-358,398-402,408-413,425-430
+  s_2e541fa6f03e36::t_9e693c213149d8 14,28-32,95,112
+  s_2e541fa6f03e36::t_83d488c3555681 59,61-65
+  s_2e541fa6f03e36::t_f51693bd420a2d 390-394
+  s_2e541fa6f03e36::t_328421bbdf5388 236-243,247,249-306
+apps/api/src/lib/study-analysis.ts
+  s_2e541fa6f03e36::t_86d316b4be4cad 76-78,179
+apps/web/src/components/interviews/interview-room.tsx
+  s_2e541fa6f03e36::t_2b558f455084c9 41-50,91,98-100,116-120
+  s_2e541fa6f03e36::t_b7228a90e2f255 235-240
+  s_2e541fa6f03e36::t_b137485535fb7c 92-97
+apps/api/src/lib/studies/service.ts
+  s_2e541fa6f03e36::t_e9e4633e2fa123 573-577
+  s_2e541fa6f03e36::t_1e53056362e7b2 63-67
+  s_2e541fa6f03e36::t_d2029cf1f6b862 549,552
+  s_2e541fa6f03e36::t_f5f9ba2da75659 245,247,249-250
+  s_2e541fa6f03e36::t_b22376ed68358f 550-551,553
+apps/api/src/routes/public-interviews.ts
+  s_2e541fa6f03e36::t_8e434127d44149 28-31,60-61,159,162-169,172-180,188,190-191,193-199,203,237,269
+apps/api/src/scripts/seed-demo-studies.ts
+  s_2e541fa6f03e36::t_d88e7ba1ab34c6 10,49-50
+apps/api/src/lib/interview-coverage.ts
+  s_2e541fa6f03e36::t_0bfaea6c209450 1-63,65-69,71-161,163-206
+  s_2e541fa6f03e36::t_de23c817683e47 64,70,162
+apps/api/src/ai/service.ts
+  s_2e541fa6f03e36::t_796b64ac022d75 14-15,18,22-26,37,39,47,65-67,107,113,115,123-135
+apps/api/src/app.test.ts
+  s_2e541fa6f03e36::t_a8cdcdcdf94286 9-13,35-38,43-50,52,57,59,63,66
+  s_2e541fa6f03e36::t_fe6a0ef64102c2 2083-2084
+  s_2e541fa6f03e36::t_add20e82bf1268 2246,2249-2250
+  s_2e541fa6f03e36::t_1ddd72c01ce52a 2156,2158,2162,2165
+  s_2e541fa6f03e36::t_de23c817683e47 39-42
+  s_2e541fa6f03e36::t_ae1bb9fbd19590 2314,2317-2318
+  s_2e541fa6f03e36::t_76895209d5c332 211
+  s_2e541fa6f03e36::t_09fac9835a9dab 2300,2306-2308
+  s_2e541fa6f03e36::t_0067fe448026bf 2383,2385,2389,2392
+apps/api/drizzle/0001_natural_slapstick.sql
+  s_2e541fa6f03e36::t_da88a162d1d5bc 1
+packages/contracts/src/studies.ts
+  s_2e541fa6f03e36::t_7afc2895e5ca5d 255-258
+apps/api/src/lib/public-interviews/service.ts
+  s_2e541fa6f03e36::t_76878797279449 244-249,253,466-472,477-478,480-483,493,782,784,786,818
+  s_2e541fa6f03e36::t_214df946abd33b 52-57,88,162,164,166
+  s_2e541fa6f03e36::t_3ad2576f1af457 770
+apps/api/src/lib/analysis/worker.ts
+  s_2e541fa6f03e36::t_cd9cfbe92f48e8 43,270-272,280-282
+apps/api/src/ai/research-service.ts
+  s_2e541fa6f03e36::t_4e6c6a26ed1bee 8,37
+apps/api/src/ai/schemas.ts
+  s_2e541fa6f03e36::t_893083e1ba134f 4,6,9,22-24,26-29
+apps/api/src/ai/research-schemas.ts
+  s_2e541fa6f03e36::t_3993393f443b9a 216-219
+apps/api/src/lib/session-debrief-validation.test.ts
+  s_2e541fa6f03e36::t_1d34749a13bffa 217-324
+  s_2e541fa6f03e36::t_7df9a74c3acc2d 11,59-68,72,124-128,146,198-202,329,384-388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "4dabe4bc6447a93bdd486e2f1bea144d29a811e8",
+  "prompts": {},
+  "sessions": {
+    "s_2e541fa6f03e36": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1eae-e5c9-7950-8b60-cb26a1b483b8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Samaila Bala <samailabalap@gmail.com>"
+    }
+  }
+}
