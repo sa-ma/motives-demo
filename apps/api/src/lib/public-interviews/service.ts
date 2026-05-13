@@ -19,7 +19,6 @@ import { enqueueSessionDebriefJob } from "../analysis/queue.js";
 import {
   createInterviewSession,
   createParticipantProfile,
-  findInviteWithSession,
   findParticipantProfileBySessionId,
   findSessionByBrowserSessionTokenHash,
   findSessionById,
@@ -63,7 +62,6 @@ const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 export const INTERVIEW_SESSION_TOKEN_HEADER = "x-interview-session-token";
 
 type SharedInviteRow = NonNullable<Awaited<ReturnType<typeof findStudyInviteByCode>>>;
-type LegacyInviteBundle = NonNullable<Awaited<ReturnType<typeof findInviteWithSession>>>;
 type InviteRef = {
   inviteCode: string;
   studyId: string;
@@ -105,12 +103,7 @@ type PublicInterviewActionResult = {
 };
 
 type SessionScope =
-  | {
-      invite: InviteRef;
-      kind: "legacy";
-      sessionId: string;
-    }
-  | {
+  {
       invite: InviteRef;
       kind: "shared";
       sessionId: string;
@@ -400,30 +393,6 @@ async function getSharedInviteRouteState(
   return buildUnavailableOrReadySharedState(db, invite, study);
 }
 
-async function getLegacyInviteRouteState(
-  db: AppDatabase,
-  inviteBundle: LegacyInviteBundle,
-): Promise<PublicInterviewRouteState> {
-  const { invite } = inviteBundle;
-  const session = await expireSessionIfIdle(db, inviteBundle.session.id);
-  const payload = await getInviteRoutePayload(db, {
-    inviteCode: invite.inviteCode,
-    studyId: invite.studyId,
-  });
-
-  if (isInviteExpired(invite) || !session || session.sessionStatus === "expired") {
-    return {
-      invite: payload,
-      kind: "expired",
-    };
-  }
-
-  return buildReadyRouteState(db, {
-    inviteCode: invite.inviteCode,
-    studyId: invite.studyId,
-  }, session);
-}
-
 async function resolveSessionScope(
   db: AppDatabase,
   inviteCode: string,
@@ -448,26 +417,7 @@ async function resolveSessionScope(
     };
   }
 
-  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
-
-  if (!legacyInviteBundle) {
-    return null;
-  }
-
-  const session = await expireSessionIfIdle(db, legacyInviteBundle.session.id);
-
-  if (!session || session.sessionStatus === "expired") {
-    return null;
-  }
-
-  return {
-    invite: {
-      inviteCode: legacyInviteBundle.invite.inviteCode,
-      studyId: legacyInviteBundle.invite.studyId,
-    },
-    kind: "legacy",
-    sessionId: session.id,
-  };
+  return null;
 }
 
 async function prepareChatForSession(
@@ -787,16 +737,10 @@ export async function getPublicInterviewRouteState(
     return getSharedInviteRouteState(db, sharedInvite, sessionToken);
   }
 
-  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
-
-  if (!legacyInviteBundle) {
-    return {
-      inviteCode: inviteCode.toUpperCase(),
-      kind: "invalid",
-    };
-  }
-
-  return getLegacyInviteRouteState(db, legacyInviteBundle);
+  return {
+    inviteCode: inviteCode.toUpperCase(),
+    kind: "invalid",
+  };
 }
 
 export async function preparePublicInterviewChatTurn(
@@ -826,23 +770,7 @@ export async function preparePublicInterviewChatTurn(
     }
   }
 
-  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
-
-  if (!legacyInviteBundle) {
-    throw new ApiError(404, "Interview invite is not available.", "INVITE_NOT_FOUND");
-  }
-
-  if (isInviteExpired(legacyInviteBundle.invite)) {
-    throw new ApiError(410, "Interview invite has expired.", "INVITE_EXPIRED");
-  }
-
-  const scope = await resolveSessionScope(db, inviteCode, sessionToken);
-
-  if (!scope) {
-    throw new ApiError(409, "Interview session is not active.", "INTERVIEW_SESSION_INACTIVE");
-  }
-
-  return db.transaction(async (tx) => prepareChatForSession(tx, scope, input));
+  throw new ApiError(404, "Interview invite is not available.", "INVITE_NOT_FOUND");
 }
 
 export async function finalizePublicInterviewChatTurn(
@@ -944,26 +872,5 @@ export async function performPublicInterviewAction(
     throw new ApiError(409, "Interview session is not active.", "INTERVIEW_SESSION_INACTIVE");
   }
 
-  const legacyInviteBundle = await findInviteWithSession(db, inviteCode);
-
-  if (!legacyInviteBundle) {
-    throw new ApiError(404, "Interview invite is not available.");
-  }
-
-  if (isInviteExpired(legacyInviteBundle.invite)) {
-    throw new ApiError(410, "Interview invite has expired.");
-  }
-
-  const scope: SessionScope = {
-    invite: {
-      inviteCode: legacyInviteBundle.invite.inviteCode,
-      studyId: legacyInviteBundle.invite.studyId,
-    },
-    kind: "legacy",
-    sessionId: legacyInviteBundle.session.id,
-  };
-
-  return {
-    response: await db.transaction(async (tx) => performSessionAction(tx, scope, input)),
-  };
+  throw new ApiError(404, "Interview invite is not available.");
 }

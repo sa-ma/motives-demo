@@ -52,7 +52,6 @@ export async function truncateAllTables(databaseUrl: string) {
         session_annotation,
         transcript_turn,
         participant_profile,
-        interview_invite,
         study_invite,
         interview_session,
         participant_field,

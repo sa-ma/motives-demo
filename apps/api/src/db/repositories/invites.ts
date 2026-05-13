@@ -3,12 +3,7 @@ import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DatabaseExecutor } from "../client.js";
-import {
-  studyInvite,
-  interviewInvite,
-  interviewSession,
-  participantProfile,
-} from "../schema.js";
+import { studyInvite, interviewSession, participantProfile } from "../schema.js";
 
 export async function createInviteCode(db: DatabaseExecutor) {
   for (;;) {
@@ -23,14 +18,7 @@ export async function createInviteCode(db: DatabaseExecutor) {
       continue;
     }
 
-    const existing = await db.query.interviewInvite.findFirst({
-      columns: { id: true },
-      where: eq(interviewInvite.inviteCode, candidate),
-    });
-
-    if (!existing) {
-      return candidate;
-    }
+    return candidate;
   }
 }
 
@@ -48,13 +36,6 @@ export async function createInterviewSession(
   await db.insert(interviewSession).values(values);
 }
 
-export async function createInterviewInvite(
-  db: DatabaseExecutor,
-  values: typeof interviewInvite.$inferInsert,
-) {
-  await db.insert(interviewInvite).values(values);
-}
-
 export async function createParticipantProfile(
   db: DatabaseExecutor,
   values: typeof participantProfile.$inferInsert,
@@ -69,30 +50,6 @@ export async function findStudyInviteByCode(
   return db.query.studyInvite.findFirst({
     where: eq(studyInvite.inviteCode, inviteCode.toUpperCase()),
   });
-}
-
-export async function findInviteWithSession(db: DatabaseExecutor, inviteCode: string) {
-  const normalizedCode = inviteCode.toUpperCase();
-  const invite = await db.query.interviewInvite.findFirst({
-    where: eq(interviewInvite.inviteCode, normalizedCode),
-  });
-
-  if (!invite) {
-    return null;
-  }
-
-  const session = await db.query.interviewSession.findFirst({
-    where: eq(interviewSession.id, invite.sessionId),
-  });
-
-  if (!session) {
-    throw new Error("Interview session is missing.");
-  }
-
-  return {
-    invite,
-    session,
-  };
 }
 
 export async function findActiveStudyInviteForStudy(
@@ -128,21 +85,6 @@ export async function revokeExpiredStudyInvitesForStudy(
   `);
 }
 
-export async function findLatestActiveInviteForStudy(
-  db: DatabaseExecutor,
-  studyId: string,
-  now: string,
-) {
-  return db.query.interviewInvite.findFirst({
-    orderBy: [desc(interviewInvite.createdAt)],
-    where: and(
-      eq(interviewInvite.studyId, studyId),
-      isNull(interviewInvite.revokedAt),
-      gt(interviewInvite.expiresAt, now),
-    ),
-  });
-}
-
 export async function listActiveStudyInvitesForStudies(
   db: DatabaseExecutor,
   options: {
@@ -160,48 +102,6 @@ export async function listActiveStudyInvitesForStudies(
       inArray(studyInvite.studyId, options.studyIds),
       isNull(studyInvite.revokedAt),
       gt(studyInvite.expiresAt, options.now),
-    ),
-  });
-}
-
-export async function listLatestActiveInvitesForStudies(
-  db: DatabaseExecutor,
-  options: {
-    now: string;
-    studyIds: string[];
-  },
-) {
-  if (options.studyIds.length === 0) {
-    return [];
-  }
-
-  return db.query.interviewInvite.findMany({
-    orderBy: [asc(interviewInvite.studyId), desc(interviewInvite.createdAt)],
-    where: and(
-      inArray(interviewInvite.studyId, options.studyIds),
-      isNull(interviewInvite.revokedAt),
-      gt(interviewInvite.expiresAt, options.now),
-    ),
-  });
-}
-
-export async function listLatestActiveInvitesForSessions(
-  db: DatabaseExecutor,
-  options: {
-    now: string;
-    sessionIds: string[];
-  },
-) {
-  if (options.sessionIds.length === 0) {
-    return [];
-  }
-
-  return db.query.interviewInvite.findMany({
-    orderBy: [asc(interviewInvite.sessionId), desc(interviewInvite.createdAt)],
-    where: and(
-      inArray(interviewInvite.sessionId, options.sessionIds),
-      isNull(interviewInvite.revokedAt),
-      gt(interviewInvite.expiresAt, options.now),
     ),
   });
 }

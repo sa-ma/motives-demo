@@ -219,29 +219,6 @@ export const studyInvite = pgTable(
   }),
 );
 
-export const interviewInvite = pgTable(
-  "interview_invite",
-  {
-    id: text("id").primaryKey(),
-    studyId: text("study_id")
-      .notNull()
-      .references(() => study.id, { onDelete: "cascade" }),
-    sessionId: text("session_id")
-      .notNull()
-      .references(() => interviewSession.id, { onDelete: "cascade" })
-      .unique(),
-    inviteCode: text("invite_code").notNull().unique(),
-    createdAt: timestamp("created_at", { mode: "string", withTimezone: true }).notNull(),
-    expiresAt: timestamp("expires_at", { mode: "string", withTimezone: true }).notNull(),
-    revokedAt: timestamp("revoked_at", { mode: "string", withTimezone: true }),
-  },
-  (table) => ({
-    studyActiveCreatedIdx: index("idx_interview_invite_study_active_created")
-      .on(table.studyId, table.createdAt)
-      .where(sql`${table.revokedAt} is null`),
-  }),
-);
-
 export const participantProfile = pgTable("participant_profile", {
   id: text("id").primaryKey(),
   sessionId: text("session_id")
@@ -391,7 +368,6 @@ export type StudyAggregateRow = typeof studyAggregate.$inferSelect;
 export type ParticipantFieldRow = typeof participantField.$inferSelect;
 export type InterviewSessionRow = typeof interviewSession.$inferSelect;
 export type StudyInviteRow = typeof studyInvite.$inferSelect;
-export type InterviewInviteRow = typeof interviewInvite.$inferSelect;
 export type ParticipantProfileRow = typeof participantProfile.$inferSelect;
 export type TranscriptTurnRow = typeof transcriptTurn.$inferSelect;
 export type SessionAnnotationRow = typeof sessionAnnotation.$inferSelect;

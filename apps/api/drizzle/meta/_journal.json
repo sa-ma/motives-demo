@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778364872728,
-      "tag": "0000_loose_mephistopheles",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1778432649613,
-      "tag": "0001_clever_black_tarantula",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1778455262129,
-      "tag": "0002_tired_mindworm",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1778467200000,
-      "tag": "0003_archived_study_status",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1778470800000,
-      "tag": "0004_invite_lookup_index",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1778544000000,
-      "tag": "0005_plan_generation_job",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1778601600000,
-      "tag": "0006_study_invite_lazy_sessions",
+      "when": 1778630059546,
+      "tag": "0000_calm_wasp",
       "breakpoints": true
     }
   ]

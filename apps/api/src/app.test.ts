@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import type { InterviewAiService } from "./ai/service.js";
 import type { ResearchAiService } from "./ai/research-service.js";
-import { migrateDatabase, truncateAllTables } from "./db/migrations.js";
+import { resetDatabase, truncateAllTables } from "./db/migrations.js";
 import { processNextAnalysisJob } from "./lib/analysis/worker.js";
 import { buildApp } from "./app.js";
 
@@ -543,7 +543,7 @@ async function createTestApp(options: {
 }
 
 before(async () => {
-  await migrateDatabase(testDatabaseUrl);
+  await resetDatabase(testDatabaseUrl);
 });
 
 beforeEach(async () => {
